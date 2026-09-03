@@ -1410,7 +1410,11 @@ function run() {
   processDefQueue();
 }
 
-// ---- 英英辞書の意味を自動取得(Free Dictionary API / CORS対応・無料・キー不要) ----
+// ---- 英英辞書の意味を自動取得 ----
+// 1つの辞書サービスだけに頼ると、そのサービスが不安定なときに全滅してしまうため、
+// 2つの無料・キー不要サービスを順番に試す(1つ目がダメでも2つ目で拾えるようにする)。
+//   ①Datamuse API  : 多くのWebアプリがブラウザから直接呼び出している実績があり、CORS周りが安定している
+//   ②Free Dictionary API(dictionaryapi.dev): 情報量は多いが、個人運営の小規模サービスで時々不安定になる
 const defQueue = [];
 let defWorkers = 0;
 const MAX_CONCURRENT = 4;
@@ -1426,31 +1430,63 @@ function processDefQueue() {
   }
 }
 
+// ①Datamuse APIから意味を取得。取れなければnullを返す(例外は投げない)
+async function tryDatamuse(word) {
+  const res = await fetch("https://api.datamuse.com/words?sp=" + encodeURIComponent(word.toLowerCase()) + "&md=d&max=1");
+  if (!res.ok) return null;
+  const json = await res.json();
+  const entry = json && json[0];
+  const defs = entry && entry.defs;
+  if (!defs || defs.length === 0) return null;
+  // defs[0] の形式は "品詞略号\t定義文"(例: "n\tan animal that ..."）
+  const tab = defs[0].indexOf("\t");
+  const pos = tab >= 0 ? defs[0].slice(0, tab) : "";
+  const text = tab >= 0 ? defs[0].slice(tab + 1) : defs[0];
+  if (!text) return null;
+  return { pos, text };
+}
+
+// ②Free Dictionary APIから意味を取得。取れなければnullを返す(例外は投げない)
+async function tryFreeDictionary(word) {
+  const res = await fetch("https://api.dictionaryapi.dev/api/v2/entries/en/" + encodeURIComponent(word.toLowerCase()));
+  if (!res.ok) return null;
+  const json = await res.json();
+  const entry = json && json[0];
+  const meaning = entry && entry.meanings && entry.meanings[0];
+  const def = meaning && meaning.definitions && meaning.definitions[0];
+  if (!def) return null;
+  return { pos: meaning.partOfSpeech || "", text: def.definition };
+}
+
 async function fetchDefinition(word, elId) {
   const el = document.getElementById(elId);
   if (!el) return;
-  try {
-    const res = await fetch("https://api.dictionaryapi.dev/api/v2/entries/en/" + encodeURIComponent(word.toLowerCase()));
-    if (!res.ok) {
-      el.className = "definition notfound";
-      el.textContent = "英英辞書に該当する意味が見つかりませんでした(Weblioリンクをご利用ください)";
-      return;
+
+  let result = null;
+  let lastError = null;
+
+  for (const tryFn of [tryDatamuse, tryFreeDictionary]) {
+    try {
+      result = await tryFn(word);
+      if (result) break;
+    } catch (e) {
+      lastError = e;
+      // このサービスがダメでも、次のサービスを試すので処理を続ける
     }
-    const json = await res.json();
-    const entry = json[0];
-    const meaning = entry && entry.meanings && entry.meanings[0];
-    const def = meaning && meaning.definitions && meaning.definitions[0];
-    if (!def) {
-      el.className = "definition notfound";
-      el.textContent = "英英辞書に該当する意味が見つかりませんでした(Weblioリンクをご利用ください)";
-      return;
-    }
+  }
+
+  if (result) {
     el.className = "definition";
-    const pos = meaning.partOfSpeech ? `<span class="pos">${meaning.partOfSpeech}</span>` : "";
-    el.innerHTML = `${pos}${def.definition}`;
-  } catch (e) {
-    el.className = "definition notfound";
-    el.textContent = "意味の取得に失敗しました:" + (e && e.message ? e.message : e) + "(Weblioリンクをご利用ください)";
+    const pos = result.pos ? `<span class="pos">${result.pos}</span>` : "";
+    el.innerHTML = `${pos}${result.text}`;
+    return;
+  }
+
+  el.className = "definition notfound";
+  if (lastError) {
+    el.textContent = "意味の取得に失敗しました:" + (lastError.message || lastError) + "(Weblioリンクをご利用ください)";
+  } else {
+    el.textContent = "英英辞書に該当する意味が見つかりませんでした(Weblioリンクをご利用ください)";
   }
 }
 
