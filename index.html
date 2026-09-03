@@ -200,6 +200,25 @@
     border-bottom:1px solid var(--navy-soft);
   }
   .weblio-link:hover{color:var(--navy); border-color:var(--navy);}
+  .definition{
+    margin-top:9px;
+    font-size:13px;
+    color:var(--ink);
+    background:#f2f6fa;
+    border-left:3px solid var(--navy-soft);
+    padding:7px 10px;
+    border-radius:0 2px 2px 0;
+  }
+  .definition .pos{
+    font-size:11px;
+    font-weight:700;
+    color:var(--navy);
+    text-transform:uppercase;
+    letter-spacing:.03em;
+    margin-right:6px;
+  }
+  .definition.loading{color:var(--ink-soft); font-style:italic; background:#f7f3ea; border-left-color:var(--paper-line);}
+  .definition.notfound{color:var(--ink-soft); font-style:italic; background:#f7f3ea; border-left-color:var(--paper-line);}
   .empty-state{
     text-align:center;
     padding:40px 16px;
@@ -258,7 +277,7 @@
   <section id="results"></section>
 
   <div class="note-box">
-    Weblioの意味を自動取得する機能について: ブラウザ上の単体ファイルからは他サイトのデータを直接取得できない仕組み(CORS制限)があるため、自動表示は行っていません。かわりに各単語に「Weblioで意味を見る」リンクを付けているので、タップすると新しいタブでその単語の意味がすぐに開きます。料金は一切かかりません。
+    意味の自動表示について: Weblio側は他サイトからの自動取得を許可していないため、Weblioの意味を直接このページに表示することはできません(タップしてWeblioを開くリンクのみ提供しています)。かわりに無料で公開されている英英辞書API(Free Dictionary API)を使い、未収録単語の英語の意味をこのページ上に自動でまとめて表示します。タブを一つずつ開く必要はありません。料金は一切かかりません。日本語訳が欲しい場合や、英英の意味では分かりにくい場合はWeblioリンクをご利用ください。
   </div>
 </main>
 
@@ -1376,12 +1395,62 @@ function run() {
         ).join("")}</div>`
       : '<div class="no-neighbors">近い綴りの見出し語が見つかりませんでした</div>';
 
+    const defId = "def-" + word.toLowerCase().replace(/[^a-z0-9]/g, "") + "-" + Math.random().toString(36).slice(2, 7);
+
     card.innerHTML = `
       <div class="headword"><span class="mark">未収録</span>${word}</div>
       ${neighborsHtml}
-      <a class="weblio-link" href="${weblioUrl(word)}" target="_blank" rel="noopener">Weblioで意味を見る &rarr;</a>
+      <div class="definition loading" id="${defId}">意味を取得中...</div>
+      <a class="weblio-link" href="${weblioUrl(word)}" target="_blank" rel="noopener">Weblioで意味を見る(日本語訳) &rarr;</a>
     `;
     resultsEl.appendChild(card);
+    defQueue.push({ word, elId: defId });
+  }
+
+  processDefQueue();
+}
+
+// ---- 英英辞書の意味を自動取得(Free Dictionary API / CORS対応・無料・キー不要) ----
+const defQueue = [];
+let defWorkers = 0;
+const MAX_CONCURRENT = 4;
+
+function processDefQueue() {
+  while (defWorkers < MAX_CONCURRENT && defQueue.length > 0) {
+    const job = defQueue.shift();
+    defWorkers++;
+    fetchDefinition(job.word, job.elId).finally(() => {
+      defWorkers--;
+      processDefQueue();
+    });
+  }
+}
+
+async function fetchDefinition(word, elId) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  try {
+    const res = await fetch("https://api.dictionaryapi.dev/api/v2/entries/en/" + encodeURIComponent(word.toLowerCase()));
+    if (!res.ok) {
+      el.className = "definition notfound";
+      el.textContent = "英英辞書に該当する意味が見つかりませんでした(Weblioリンクをご利用ください)";
+      return;
+    }
+    const json = await res.json();
+    const entry = json[0];
+    const meaning = entry && entry.meanings && entry.meanings[0];
+    const def = meaning && meaning.definitions && meaning.definitions[0];
+    if (!def) {
+      el.className = "definition notfound";
+      el.textContent = "英英辞書に該当する意味が見つかりませんでした(Weblioリンクをご利用ください)";
+      return;
+    }
+    el.className = "definition";
+    const pos = meaning.partOfSpeech ? `<span class="pos">${meaning.partOfSpeech}</span>` : "";
+    el.innerHTML = `${pos}${def.definition}`;
+  } catch (e) {
+    el.className = "definition notfound";
+    el.textContent = "意味の取得に失敗しました(通信環境をご確認いただくか、Weblioリンクをご利用ください)";
   }
 }
 
