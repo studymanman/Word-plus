@@ -1450,7 +1450,7 @@ async function fetchDefinition(word, elId) {
     el.innerHTML = `${pos}${def.definition}`;
   } catch (e) {
     el.className = "definition notfound";
-    el.textContent = "意味の取得に失敗しました(通信環境をご確認いただくか、Weblioリンクをご利用ください)";
+    el.textContent = "意味の取得に失敗しました:" + (e && e.message ? e.message : e) + "(Weblioリンクをご利用ください)";
   }
 }
 
