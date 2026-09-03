@@ -277,7 +277,7 @@
   <section id="results"></section>
 
   <div class="note-box">
-    意味の自動表示について: Weblio側は他サイトからの自動取得を許可していないため、Weblioの意味を直接このページに表示することはできません(タップしてWeblioを開くリンクのみ提供しています)。かわりに無料で公開されている英英辞書API(Free Dictionary API)を使い、未収録単語の英語の意味をこのページ上に自動でまとめて表示します。タブを一つずつ開く必要はありません。料金は一切かかりません。日本語訳が欲しい場合や、英英の意味では分かりにくい場合はWeblioリンクをご利用ください。
+    日本語訳の自動表示について: Weblio側は他サイトからの自動取得を許可していないため、Weblioの訳を直接このページに表示することはできません(タップしてWeblioを開くリンクのみ提供しています)。かわりに無料の翻訳API(MyMemory)を使い、未収録単語の日本語訳をこのページ上に自動でまとめて表示します。タブを一つずつ開く必要はなく、料金も一切かかりません。ただし簡易的な機械翻訳のため、文脈に合わない訳や取得できない単語もあります。正確な意味を確認したい場合はWeblioリンクをご利用ください。
   </div>
 </main>
 
@@ -1400,8 +1400,8 @@ function run() {
     card.innerHTML = `
       <div class="headword"><span class="mark">未収録</span>${word}</div>
       ${neighborsHtml}
-      <div class="definition loading" id="${defId}">意味を取得中...</div>
-      <a class="weblio-link" href="${weblioUrl(word)}" target="_blank" rel="noopener">Weblioで意味を見る(日本語訳) &rarr;</a>
+      <div class="definition loading" id="${defId}">日本語訳を取得中...</div>
+      <a class="weblio-link" href="${weblioUrl(word)}" target="_blank" rel="noopener">Weblioで意味を見る &rarr;</a>
     `;
     resultsEl.appendChild(card);
     defQueue.push({ word, elId: defId });
@@ -1410,83 +1410,84 @@ function run() {
   processDefQueue();
 }
 
-// ---- 英英辞書の意味を自動取得 ----
-// 1つの辞書サービスだけに頼ると、そのサービスが不安定なときに全滅してしまうため、
-// 2つの無料・キー不要サービスを順番に試す(1つ目がダメでも2つ目で拾えるようにする)。
-//   ①Datamuse API  : 多くのWebアプリがブラウザから直接呼び出している実績があり、CORS周りが安定している
-//   ②Free Dictionary API(dictionaryapi.dev): 情報量は多いが、個人運営の小規模サービスで時々不安定になる
+// ---- 日本語訳の自動取得 ----
+// MyMemory Translation API(無料・キー不要・CORS対応)を使い、未収録単語の日本語訳を自動取得する。
+// 同時に大量リクエストを送るとサービス側のレート制限に引っかかり、2件目以降が失敗しやすくなるため、
+// 同時実行数を絞り、さらにリクエストの間に少し間隔を空けて順番に処理する。
 const defQueue = [];
 let defWorkers = 0;
-const MAX_CONCURRENT = 4;
+const MAX_CONCURRENT = 2;
+const REQUEST_GAP_MS = 350; // 1件送るごとに空ける間隔(レート制限対策)
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+let nextDispatchTime = 0;
 
 function processDefQueue() {
   while (defWorkers < MAX_CONCURRENT && defQueue.length > 0) {
     const job = defQueue.shift();
     defWorkers++;
-    fetchDefinition(job.word, job.elId).finally(() => {
-      defWorkers--;
-      processDefQueue();
-    });
+    const now = Date.now();
+    const startAt = Math.max(now, nextDispatchTime);
+    nextDispatchTime = startAt + REQUEST_GAP_MS;
+    const wait = startAt - now;
+    (wait > 0 ? sleep(wait) : Promise.resolve())
+      .then(() => fetchDefinition(job.word, job.elId))
+      .finally(() => {
+        defWorkers--;
+        processDefQueue();
+      });
   }
 }
 
-// ①Datamuse APIから意味を取得。取れなければnullを返す(例外は投げない)
-async function tryDatamuse(word) {
-  const res = await fetch("https://api.datamuse.com/words?sp=" + encodeURIComponent(word.toLowerCase()) + "&md=d&max=1");
+// MyMemory APIで英語→日本語の訳を取得。取れなければnullを返す(例外は投げない)
+async function tryMyMemory(word) {
+  const url = "https://api.mymemory.translated.net/get?q=" + encodeURIComponent(word) + "&langpair=en|ja";
+  const res = await fetch(url);
   if (!res.ok) return null;
   const json = await res.json();
-  const entry = json && json[0];
-  const defs = entry && entry.defs;
-  if (!defs || defs.length === 0) return null;
-  // defs[0] の形式は "品詞略号\t定義文"(例: "n\tan animal that ..."）
-  const tab = defs[0].indexOf("\t");
-  const pos = tab >= 0 ? defs[0].slice(0, tab) : "";
-  const text = tab >= 0 ? defs[0].slice(tab + 1) : defs[0];
+  const text = json && json.responseData && json.responseData.translatedText;
   if (!text) return null;
-  return { pos, text };
+  // レート制限時などはメッセージが英語のまま返ってくることがあるため、それらは不採用にする
+  if (/MYMEMORY WARNING|QUOTA/i.test(text)) return null;
+  // 訳が原語(英単語そのまま)しか返らなかった場合も、意味が取れていないとみなす
+  if (text.trim().toLowerCase() === word.trim().toLowerCase()) return null;
+  return { text };
 }
 
-// ②Free Dictionary APIから意味を取得。取れなければnullを返す(例外は投げない)
-async function tryFreeDictionary(word) {
-  const res = await fetch("https://api.dictionaryapi.dev/api/v2/entries/en/" + encodeURIComponent(word.toLowerCase()));
-  if (!res.ok) return null;
-  const json = await res.json();
-  const entry = json && json[0];
-  const meaning = entry && entry.meanings && entry.meanings[0];
-  const def = meaning && meaning.definitions && meaning.definitions[0];
-  if (!def) return null;
-  return { pos: meaning.partOfSpeech || "", text: def.definition };
-}
-
-async function fetchDefinition(word, elId) {
+async function fetchDefinition(word, elId, attempt) {
+  attempt = attempt || 1;
   const el = document.getElementById(elId);
   if (!el) return;
 
   let result = null;
   let lastError = null;
 
-  for (const tryFn of [tryDatamuse, tryFreeDictionary]) {
-    try {
-      result = await tryFn(word);
-      if (result) break;
-    } catch (e) {
-      lastError = e;
-      // このサービスがダメでも、次のサービスを試すので処理を続ける
-    }
+  try {
+    result = await tryMyMemory(word);
+  } catch (e) {
+    lastError = e;
   }
 
   if (result) {
     el.className = "definition";
-    const pos = result.pos ? `<span class="pos">${result.pos}</span>` : "";
-    el.innerHTML = `${pos}${result.text}`;
+    el.innerHTML = result.text;
     return;
+  }
+
+  // 失敗時(レート制限等)は少し待って1回だけ再試行する
+  if (attempt < 3) {
+    await sleep(600 * attempt);
+    return fetchDefinition(word, elId, attempt + 1);
   }
 
   el.className = "definition notfound";
   if (lastError) {
-    el.textContent = "意味の取得に失敗しました:" + (lastError.message || lastError) + "(Weblioリンクをご利用ください)";
+    el.textContent = "日本語訳の取得に失敗しました:" + (lastError.message || lastError) + "(Weblioリンクをご利用ください)";
   } else {
-    el.textContent = "英英辞書に該当する意味が見つかりませんでした(Weblioリンクをご利用ください)";
+    el.textContent = "日本語訳が見つかりませんでした(Weblioリンクをご利用ください)";
   }
 }
 
