@@ -162,6 +162,91 @@
     color:var(--ink-soft);
     font-weight:400;
   }
+  .word-card .headword{
+    justify-content:space-between;
+  }
+  .hide-btn{
+    appearance:none;
+    border:1px solid var(--ink-soft);
+    background:#fffdf8;
+    color:var(--ink-soft);
+    font-size:11px;
+    font-weight:600;
+    padding:3px 8px;
+    border-radius:3px;
+    cursor:pointer;
+    font-family:inherit;
+    white-space:nowrap;
+    margin-left:auto;
+  }
+  .hide-btn:hover{background:var(--ink-soft); color:#fff;}
+  .ignore-bar{
+    margin-top:10px;
+  }
+  .ignore-toggle{
+    appearance:none;
+    border:none;
+    background:none;
+    color:var(--navy-soft);
+    font-size:12.5px;
+    text-decoration:underline;
+    cursor:pointer;
+    font-family:inherit;
+    padding:0;
+  }
+  .ignore-toggle:hover{color:var(--navy);}
+  .ignore-panel{
+    margin-top:10px;
+    background:#fffdf8;
+    border:1px dashed var(--paper-line);
+    border-radius:3px;
+    padding:12px 14px;
+  }
+  .ignore-panel-head{
+    font-size:12.5px;
+    font-weight:700;
+    color:var(--navy);
+    margin-bottom:8px;
+  }
+  .ignore-panel-head .ignore-note{
+    font-weight:400;
+    color:var(--ink-soft);
+  }
+  .ignore-list{
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px 8px;
+  }
+  .ignore-chip{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    font-size:12.5px;
+    background:#f2f6fa;
+    color:var(--navy);
+    border:1px solid #dbe6f0;
+    border-radius:3px;
+    padding:3px 6px 3px 9px;
+  }
+  .ignore-chip button{
+    appearance:none;
+    border:none;
+    background:var(--navy-soft);
+    color:#fff;
+    font-size:11px;
+    line-height:1;
+    width:16px;
+    height:16px;
+    border-radius:50%;
+    cursor:pointer;
+    padding:0;
+  }
+  .ignore-chip button:hover{background:var(--red);}
+  .ignore-empty{
+    font-size:12.5px;
+    color:var(--ink-soft);
+    font-style:italic;
+  }
   .neighbors{
     margin-top:9px;
     display:flex;
@@ -272,6 +357,13 @@
       </span>
     </div>
     <div class="summary" id="summary"></div>
+    <div class="ignore-bar">
+      <button class="ignore-toggle" id="ignoreToggle" type="button">今後表示しない単語を確認する(<span id="ignoreCount">0</span>)</button>
+    </div>
+    <div class="ignore-panel" id="ignorePanel" hidden>
+      <div class="ignore-panel-head">今後表示しないように設定した単語 <span class="ignore-note">(✕で表示を戻せます)</span></div>
+      <div class="ignore-list" id="ignoreList"></div>
+    </div>
   </section>
 
   <section id="results"></section>
@@ -1334,6 +1426,38 @@ function findNeighbors(word, n) {
   return candidates.slice(0, n);
 }
 
+// 基本的な助動詞・be動詞・代名詞・接続詞は、シス単の見出し語としては載っていなくても
+// 「未収録単語」として扱う意味がないため、判定対象から除外する。
+const STOPWORDS = new Set([
+  // be動詞
+  "be", "am", "is", "are", "was", "were", "been", "being",
+  // 助動詞
+  "do", "does", "did", "have", "has", "had",
+  "will", "would", "shall", "should", "can", "could", "may", "might", "must", "ought",
+  // 代名詞(人称・所有・再帰・指示・関係・疑問・不定代名詞)
+  "i", "me", "my", "mine", "myself",
+  "you", "your", "yours", "yourself", "yourselves",
+  "he", "him", "his", "himself",
+  "she", "her", "hers", "herself",
+  "it", "its", "itself",
+  "we", "us", "our", "ours", "ourselves",
+  "they", "them", "their", "theirs", "themselves",
+  "this", "that", "these", "those",
+  "who", "whom", "whose", "which", "what",
+  "whoever", "whomever", "whichever", "whatever",
+  "someone", "somebody", "something",
+  "anyone", "anybody", "anything",
+  "everyone", "everybody", "everything",
+  "nobody", "nothing", "none",
+  "one", "oneself",
+  // 接続詞(等位・従属)
+  "and", "but", "or", "nor", "for", "yet", "so",
+  "although", "though", "because", "since", "unless", "while", "whereas",
+  "if", "when", "whenever", "before", "after", "until", "till",
+  "than", "whether", "both", "either", "neither",
+  "as", "once", "lest", "provided", "providing"
+]);
+
 // 英文からアルファベット主体の単語トークンを抽出(所有格の 's やハイフン語も1語として扱う)
 function extractWords(text) {
   const raw = text.match(/[A-Za-z][A-Za-z'-]*[A-Za-z]|[A-Za-z]/g) || [];
@@ -1343,6 +1467,7 @@ function extractWords(text) {
     const clean = w.replace(/^'+|'+$/g, "");
     if (clean.length < 2) continue;
     const lower = clean.toLowerCase();
+    if (STOPWORDS.has(lower)) continue;
     if (!seen.has(lower)) {
       seen.add(lower);
       ordered.push(clean);
@@ -1356,10 +1481,88 @@ const checkBtn = document.getElementById("checkBtn");
 const summaryEl = document.getElementById("summary");
 const resultsEl = document.getElementById("results");
 const neighborCountEl = document.getElementById("neighborCount");
+const ignoreToggleEl = document.getElementById("ignoreToggle");
+const ignorePanelEl = document.getElementById("ignorePanel");
+const ignoreListEl = document.getElementById("ignoreList");
+const ignoreCountEl = document.getElementById("ignoreCount");
 
 function weblioUrl(word) {
   return "https://ejje.weblio.jp/content/" + encodeURIComponent(word);
 }
+
+// ---- 貼り付けた英文の保持(タブを閉じるまで) ----
+// sessionStorageはタブを閉じると自動で消えるので、
+// 「タブを消さない限り貼り付けたままにしたい」という用途にちょうど合う。
+const ESSAY_KEY = "vocabChecker_essayText";
+try {
+  const savedEssay = sessionStorage.getItem(ESSAY_KEY);
+  if (savedEssay) essayEl.value = savedEssay;
+} catch (e) { /* sessionStorageが使えない環境では無視 */ }
+
+essayEl.addEventListener("input", () => {
+  try { sessionStorage.setItem(ESSAY_KEY, essayEl.value); } catch (e) {}
+});
+
+// ---- 「今後表示しない」単語の管理(タブを閉じても・ページを離れても残る) ----
+const IGNORE_KEY = "vocabChecker_ignoredWords";
+
+function loadIgnoredWords() {
+  try {
+    const raw = localStorage.getItem(IGNORE_KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    return new Set(Array.isArray(arr) ? arr : []);
+  } catch (e) {
+    return new Set();
+  }
+}
+
+function saveIgnoredWords() {
+  try {
+    localStorage.setItem(IGNORE_KEY, JSON.stringify(Array.from(ignoredWords)));
+  } catch (e) { /* 保存できない環境では無視 */ }
+}
+
+let ignoredWords = loadIgnoredWords();
+
+function renderIgnorePanel() {
+  ignoreCountEl.textContent = ignoredWords.size;
+  if (ignoredWords.size === 0) {
+    ignoreListEl.innerHTML = '<div class="ignore-empty">今後表示しないように設定した単語はまだありません。</div>';
+    return;
+  }
+  const words = Array.from(ignoredWords).sort();
+  ignoreListEl.innerHTML = words.map(w =>
+    `<span class="ignore-chip" data-word="${w}">${w}<button type="button" aria-label="表示に戻す">&times;</button></span>`
+  ).join("");
+}
+
+function addIgnoredWord(word) {
+  ignoredWords.add(word.toLowerCase());
+  saveIgnoredWords();
+  renderIgnorePanel();
+}
+
+function removeIgnoredWord(word) {
+  ignoredWords.delete(word.toLowerCase());
+  saveIgnoredWords();
+  renderIgnorePanel();
+}
+
+ignoreToggleEl.addEventListener("click", () => {
+  ignorePanelEl.hidden = !ignorePanelEl.hidden;
+});
+
+ignoreListEl.addEventListener("click", (ev) => {
+  const btn = ev.target.closest("button");
+  if (!btn) return;
+  const chip = btn.closest(".ignore-chip");
+  if (!chip) return;
+  removeIgnoredWord(chip.dataset.word);
+  // 非表示リストから外したので、表示中の結果があれば最新の状態で再チェックする
+  if (essayEl.value.trim() !== "") run();
+});
+
+renderIgnorePanel();
 
 function run() {
   const text = essayEl.value;
@@ -1372,13 +1575,18 @@ function run() {
     return;
   }
 
-  const missing = words.filter(w => !wordSet.has(w.toLowerCase()));
+  const missingAll = words.filter(w => !wordSet.has(w.toLowerCase()));
+  const missing = missingAll.filter(w => !ignoredWords.has(w.toLowerCase()));
+  const hiddenCount = missingAll.length - missing.length;
+  const hiddenNote = hiddenCount > 0
+    ? `(うち今後表示しない設定の <b>${hiddenCount}</b> 語は非表示)`
+    : "";
 
   summaryEl.innerHTML =
-    `抽出した単語 <b>${words.length}</b> 語中、単語帳に <span class="flag">未収録の単語は ${missing.length} 語</span> でした。`;
+    `抽出した単語 <b>${words.length}</b> 語中、単語帳に <span class="flag">未収録の単語は ${missingAll.length} 語</span> でした。${hiddenNote}`;
 
   if (missing.length === 0) {
-    resultsEl.innerHTML = '<div class="empty-state"><div class="big">未収録の単語はありませんでした</div>この英文の単語はすべて単語帳の索引に含まれています。</div>';
+    resultsEl.innerHTML = '<div class="empty-state"><div class="big">未収録の単語はありませんでした</div>この英文の単語はすべて単語帳の索引に含まれているか、非表示に設定されています。</div>';
     return;
   }
 
@@ -1398,11 +1606,21 @@ function run() {
     const defId = "def-" + word.toLowerCase().replace(/[^a-z0-9]/g, "") + "-" + Math.random().toString(36).slice(2, 7);
 
     card.innerHTML = `
-      <div class="headword"><span class="mark">未収録</span>${word}</div>
+      <div class="headword"><span class="mark">未収録</span>${word}<button type="button" class="hide-btn" data-word="${word}">今後表示しない</button></div>
       ${neighborsHtml}
       <div class="definition loading" id="${defId}">日本語訳を取得中...</div>
       <a class="weblio-link" href="${weblioUrl(word)}" target="_blank" rel="noopener">Weblioで意味を見る &rarr;</a>
     `;
+    card.querySelector(".hide-btn").addEventListener("click", () => {
+      addIgnoredWord(word);
+      card.remove();
+      const remaining = resultsEl.querySelectorAll(".word-card").length;
+      summaryEl.innerHTML =
+        `抽出した単語 <b>${words.length}</b> 語中、単語帳に <span class="flag">未収録の単語は ${missingAll.length} 語</span> でした。(うち今後表示しない設定の <b>${missingAll.length - remaining}</b> 語は非表示)`;
+      if (remaining === 0) {
+        resultsEl.innerHTML = '<div class="empty-state"><div class="big">未収録の単語はありませんでした</div>この英文の単語はすべて単語帳の索引に含まれているか、非表示に設定されています。</div>';
+      }
+    });
     resultsEl.appendChild(card);
     defQueue.push({ word, elId: defId });
   }
