@@ -1,0 +1,1394 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>未収録単語チェッカー | システム英単語帳</title>
+<style>
+  :root{
+    --paper: #f7f3ea;
+    --paper-line: #e4dcc8;
+    --ink: #2b2620;
+    --ink-soft: #6b6255;
+    --navy: #1f3a5f;
+    --navy-soft: #4a6483;
+    --red: #b23a2e;
+    --red-soft: #d97e6f;
+    --red-bg: #fbeae6;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--paper);
+    background-image:
+      linear-gradient(var(--paper-line) 1px, transparent 1px);
+    background-size: 100% 2.1em;
+    background-position: 0 5.4em;
+    color:var(--ink);
+    font-family:"Hiragino Sans","Yu Gothic",-apple-system,sans-serif;
+    line-height:1.6;
+    padding:0 0 60px;
+  }
+  header{
+    padding:28px 20px 18px;
+    background:var(--paper);
+    border-bottom:2px solid var(--ink);
+    position:relative;
+  }
+  header::after{
+    content:"";
+    position:absolute;
+    left:20px; right:20px; bottom:-6px;
+    height:2px;
+    background:repeating-linear-gradient(90deg, var(--ink) 0 6px, transparent 6px 10px);
+    opacity:.35;
+  }
+  h1{
+    font-family:Georgia,"Hiragino Mincho ProN",serif;
+    font-size:22px;
+    margin:0 0 6px;
+    color:var(--navy);
+    letter-spacing:.01em;
+  }
+  .lede{
+    font-size:13.5px;
+    color:var(--ink-soft);
+    margin:0;
+    max-width:34em;
+  }
+  main{
+    max-width:720px;
+    margin:0 auto;
+    padding:22px 18px 0;
+  }
+  section{margin-bottom:30px;}
+  label.field-label{
+    display:block;
+    font-size:13px;
+    font-weight:600;
+    color:var(--navy);
+    margin-bottom:8px;
+  }
+  textarea{
+    width:100%;
+    min-height:160px;
+    padding:14px;
+    font-size:15px;
+    font-family:Georgia,"Hiragino Mincho ProN",serif;
+    line-height:1.65;
+    border:1.5px solid var(--ink);
+    border-radius:3px;
+    background:#fffdf8;
+    color:var(--ink);
+    resize:vertical;
+  }
+  textarea:focus{outline:2px solid var(--navy); outline-offset:1px;}
+  .row{
+    display:flex;
+    gap:12px;
+    align-items:center;
+    flex-wrap:wrap;
+    margin-top:12px;
+  }
+  button.check-btn{
+    appearance:none;
+    border:2px solid var(--red);
+    color:var(--red);
+    background:#fff;
+    font-size:15px;
+    font-weight:700;
+    padding:10px 22px;
+    border-radius:3px;
+    cursor:pointer;
+    font-family:inherit;
+    transition:background .15s, color .15s;
+  }
+  button.check-btn:hover{background:var(--red); color:#fff;}
+  button.check-btn:active{transform:translateY(1px);}
+  .opt{
+    font-size:12.5px;
+    color:var(--ink-soft);
+    display:flex;
+    align-items:center;
+    gap:6px;
+  }
+  .opt select{
+    font-family:inherit;
+    font-size:12.5px;
+    padding:3px 5px;
+    border:1px solid var(--ink-soft);
+    border-radius:3px;
+    background:#fffdf8;
+  }
+  .summary{
+    font-size:13.5px;
+    color:var(--ink-soft);
+    margin:16px 0 0;
+    padding-top:10px;
+    border-top:1px dashed var(--paper-line);
+  }
+  .summary b{color:var(--navy);}
+  .summary .flag{color:var(--red); font-weight:700;}
+  #results{margin-top:6px;}
+  .word-card{
+    background:#fffdf8;
+    border:1px solid var(--paper-line);
+    border-left:4px solid var(--red);
+    border-radius:2px;
+    padding:12px 14px;
+    margin-bottom:10px;
+  }
+  .word-card .headword{
+    font-family:Georgia,serif;
+    font-size:17px;
+    font-weight:700;
+    color:var(--red);
+    display:flex;
+    align-items:baseline;
+    gap:8px;
+    flex-wrap:wrap;
+  }
+  .word-card .headword .mark{
+    font-size:11px;
+    font-weight:700;
+    color:#fff;
+    background:var(--red);
+    padding:1px 6px;
+    border-radius:2px;
+    letter-spacing:.03em;
+  }
+  .word-card .count-note{
+    font-size:11.5px;
+    color:var(--ink-soft);
+    font-weight:400;
+  }
+  .neighbors{
+    margin-top:9px;
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px 8px;
+  }
+  .neighbor-chip{
+    display:inline-flex;
+    align-items:baseline;
+    gap:5px;
+    font-size:12.5px;
+    background:var(--red-bg);
+    color:var(--navy);
+    border:1px solid #ecd4cd;
+    border-radius:3px;
+    padding:3px 8px;
+  }
+  .neighbor-chip .nw{font-weight:600;}
+  .neighbor-chip .np{
+    font-family:Georgia,serif;
+    color:var(--ink-soft);
+    font-size:11.5px;
+  }
+  .no-neighbors{
+    margin-top:9px;
+    font-size:12px;
+    color:var(--ink-soft);
+    font-style:italic;
+  }
+  .weblio-link{
+    display:inline-block;
+    margin-top:9px;
+    font-size:12.5px;
+    color:var(--navy-soft);
+    text-decoration:none;
+    border-bottom:1px solid var(--navy-soft);
+  }
+  .weblio-link:hover{color:var(--navy); border-color:var(--navy);}
+  .empty-state{
+    text-align:center;
+    padding:40px 16px;
+    color:var(--ink-soft);
+    font-size:14px;
+  }
+  .empty-state .big{
+    font-size:15px;
+    color:var(--navy);
+    font-weight:700;
+    margin-bottom:4px;
+  }
+  .note-box{
+    font-size:12px;
+    color:var(--ink-soft);
+    background:#fffdf8;
+    border:1px dashed var(--paper-line);
+    border-radius:3px;
+    padding:10px 12px;
+    margin-top:22px;
+  }
+  footer{
+    max-width:720px;
+    margin:0 auto;
+    padding:0 18px;
+    font-size:11.5px;
+    color:var(--ink-soft);
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>未収録単語チェッカー</h1>
+  <p class="lede">英文を貼り付けると、システム英単語帳の索引データに載っていない単語を洗い出し、近い綴りの見出し語をページ番号つきで示します。</p>
+</header>
+
+<main>
+  <section>
+    <label class="field-label" for="essay">英文を貼り付ける</label>
+    <textarea id="essay" placeholder="ここに英語の長文を貼り付けてください..."></textarea>
+    <div class="row">
+      <button class="check-btn" id="checkBtn">チェックする</button>
+      <span class="opt">
+        近い単語を
+        <select id="neighborCount">
+          <option value="3">3件</option>
+          <option value="5" selected>5件</option>
+          <option value="8">8件</option>
+        </select>
+        まで表示
+      </span>
+    </div>
+    <div class="summary" id="summary"></div>
+  </section>
+
+  <section id="results"></section>
+
+  <div class="note-box">
+    Weblioの意味を自動取得する機能について: ブラウザ上の単体ファイルからは他サイトのデータを直接取得できない仕組み(CORS制限)があるため、自動表示は行っていません。かわりに各単語に「Weblioで意味を見る」リンクを付けているので、タップすると新しいタブでその単語の意味がすぐに開きます。料金は一切かかりません。
+  </div>
+</main>
+
+<footer></footer>
+
+<script>
+const data = [
+["abandon","25"],["abnormal","221"],["aboard","350"],["abolish","240"],
+["Aboriginal","244"],["abound","196"],["abrupt","321"],["abruptly","321"],
+["absolute","201"],["absolutely","201"],["absorb","77"],["absorption","77"],
+["abstract","147, 192"],["absurd","271"],["abundance","196"],["abundant","196"],
+["abuse","144"],["accelerate","235"],["accent","352"],["accept","21, 69"],
+["acceptable","69"],["acceptance","69"],["access","50"],["accessible","50"],
+["accidental","107"],["accidentally","107"],["accommodate","237"],["accommodation","237"],
+["accompany","111"],["accomplish","157"],["accomplished","157"],["accomplishment","157"],
+["accord","309"],["accordingly","155"],["account","340"],["accountant","245"],
+["accumulate","232"],["accumulation","232"],["accuracy","102"],["accurate","102"],
+["accusation","119"],["accuse","119"],["accustomed","145"],["ache","238"],
+["achieve","72"],["achievement","72"],["acid","199"],["acknowledge","14, 208"],
+["acquaintance","138"],["acquire","16"],["acquired","16"],["acquisition","16"],
+["active","149"],["activist","300"],["acute","229, 278"],["adapt","27"],
+["adaptable","27"],["adaptation","27"],["add","70"],["addict","276"],
+["addicted","276"],["addiction","276"],["addictive","276"],["addition","70"],
+["address","346"],["adequate","192"],["adhere","286"],["adjust","32"],
+["adjustment","32"],["administer","139"],["administration","139"],["administrative","139"],
+["administrator","139"],["admirable","24"],["admiration","24"],["admire","24"],
+["admission","14, 357"],["admit","14"],["adolescence","198"],["adolescent","198"],
+["adopt","22"],["adoption","22"],["adore","288"],["advance","38"],
+["advanced","38"],["advancement","38"],["advantage","82"],["advantageous","82"],
+["advent","300"],["adventure","140"],["adverse","311"],["adversity","311"],
+["advertise","96"],["advertisement","96"],["advertising","96"],["advice","74"],
+["advise","74"],["advocate","207"],["aesthetic","314"],["aesthetics","314"],
+["affair","167"],["affect","71"],["affection","174"],["affectionate","174"],
+["affirm","288"],["affluence","275"],["affluent","275"],["afford","18"],
+["affordable","18"],["African American","244"],["afterward","63"],["age","60"],
+["aged","60"],["agency","49"],["agenda","310"],["agent","49"],
+["aggression","194"],["aggressive","194"],["agree","337"],["agricultural","95"],
+["agriculture","95"],["aim","18"],["air","355"],["aircraft","142"],
+["aisle","297"],["alarm","32"],["alarmed","32"],["alarming","32"],
+["alcoholic","195"],["alert","278"],["algebra","250"],["alien","150"],
+["alienate","150"],["alike","59"],["alive","196"],["allergy","322"],
+["alliance","224"],["allocate","283"],["allocation","283"],["allow","4"],
+["allowance","249"],["ally","224"],["alter","156"],["alteration","156"],
+["alternate","49"],["alternative","49"],["altitude","256"],["altogether","154"],
+["aluminium","280"],["amaze","29"],["amazed","29"],["amazing","29"],
+["ambassador","295"],["ambiguity","273"],["ambiguous","273"],["ambition","173"],
+["ambitious","173"],["ambulance","260"],["amend","297"],["amendment","297"],
+["amount","337"],["ample","316"],["amuse","26"],["amused","26"],
+["amusement","26"],["amusing","26"],["analogy","300"],["analysis","94"],
+["analyst","94"],["analyze","94"],["anatomy","306"],["ancestor","93, 98"],
+["ancestry","93"],["ancient","93, 98"],["angle","189"],["Anglo","244"],
+["Anglo-Saxon","244"],["animal","68"],["ankle","182, 203"],["anniversary","249"],
+["announce","78"],["announcement","78"],["annoy","73"],["annoyance","73"],
+["annoyed","73"],["annoying","73"],["annual","145"],["annually","145"],
+["anonymous","316"],["ant","108"],["the Antarctic","226, 268"],["anthropologist","179"],
+["anthropology","179"],["antibiotic","179"],["antibody","179"],["anticipate","232"],
+["anticipation","232"],["anti-inflammatory","267"],["antique","257"],["antiquity","257"],
+["anxiety","60"],["anxious","60"],["apartment","204"],["ape","188"],
+["apologize","75"],["apology","75"],["apparatus","292"],["apparent","106"],
+["apparently","106"],["appeal","27"],["appealing","27"],["appear","42"],
+["appearance","42"],["appetite","175"],["applaud","285"],["applause","285"],
+["appliance","92, 295"],["applicant","12, 357"],["application","12"],["apply","12"],
+["appoint","42, 121"],["appointment","42, 121"],["appreciate","343"],["appreciation","343"],
+["apprehend","299"],["apprehension","299"],["approach","14"],["appropriate","100"],
+["approval","33"],["approve","33"],["approximate","107"],["approximately","107"],
+["apt","228"],["aptitude","228"],["aquarium","204"],["arbitrary","317"],
+["archaeologist","265"],["archaeology","265"],["architect","177"],["architectural","177"],
+["architecture","177"],["the Arctic","226, 268"],["argue","15"],["argument","15"],
+["arise","156"],["aristocracy","300"],["aristocrat","300"],["aristocratic","300"],
+["arithmetic","250"],["armed","352"],["arms","352"],["arouse","218"],
+["arrange","25"],["arrangement","25"],["array","310"],["arrest","115"],
+["arrival","261"],["arrogance","315"],["arrogant","315"],["art","340"],
+["artery","298"],["article","342"],["artifact","298"],["artificial","101"],
+["ascend","124"],["ash","307"],["ashamed","193"],["aspect","170"],
+["aspiration","303"],["aspire","303"],["assault","301"],["assemble","207"],
+["assembly","207"],["assert","164"],["assertion","164"],["assertive","164"],
+["assess","236"],["assessment","236"],["asset","224"],["assign","122"],
+["assignment","122"],["assist","32"],["assistance","32"],["assistant","32"],
+["associate","21"],["association","21"],["assume","341"],["assumption","341"],
+["assure","115"],["asteroid","291"],["asthma","322"],["astonish","119"],
+["astonished","119"],["astonishing","119"],["astronaut","184"],["astronomer","184"],
+["astronomy","184"],["athlete","84"],["athletic","84"],["athletics","84"],
+["the Atlantic Ocean","268"],["atmosphere","47"],["atmospheric","47"],["atom","188"],
+["atomic","188"],["attach","113"],["attachment","113"],["attain","240"],
+["attempt","39"],["attend","326"],["attendance","326"],["attendant","245"],
+["attentive","326"],["attitude","81"],["attract","22"],["attraction","22"],
+["attractive","22"],["attribute","120"],["audience","46"],["authentic","313"],
+["author","82"],["authority","354"],["autobiography","262"],["autonomous","278, 301"],
+["autonomy","278, 301"],["available","52"],["avenue","92"],["avoid","70"],
+["await","233"],["awake","60"],["awaken","60"],["award","141"],
+["aware","98"],["awareness","98"],["awe","147"],["awful","147"],
+["awfully","147"],["awkward","151"],["bachelor","262, 357"],["background","48"],
+["backyard","204"],["bamboo","79"],["ban","110"],["bank","204, 268"],
+["bankrupt","275"],["bankruptcy","275"],["barber","245"],["bare","154"],
+["barefoot","154"],["barely","154"],["bargain","254"],["bargaining","254"],
+["barometer","256"],["barren","269"],["barrier","167"],["base","7"],
+["basement","7"],["basic","7"],["basis","139"],["bat","68"],
+["bay","181"],["bean","62"],["bear","343"],["beard","203"],
+["beast","247"],["beat","346"],["bee","108"],["beetle","108"],
+["beg","160"],["beggar","160"],["behalf","247"],["behave","81"],
+["behavior","81"],["belong","16"],["belongings","16"],["bend","163"],
+["beneath","155"],["beneficial","43"],["benefit","43"],["besides","65, 66"],
+["bet","112"],["betray","212"],["beverage","266"],["beyond","65"],
+["bias","253"],["bilingual","52"],["bill","350"],["billion","90"],
+["bind","210"],["biodiversity","182"],["biography","262"],["biological","104"],
+["biologist","104"],["biology","104"],["bite","41"],["bitter","149"],
+["blade","252"],["blame","23"],["blanket","203"],["blessed","225"],
+["blessing","225, 302"],["blind","199"],["bloom","233"],["blossom","169"],
+["blur","284"],["blurred","284"],["board","350"],["boast","242"],
+["bold","270"],["bomb","175"],["bombing","175"],["bond","183"],
+["bone","203"],["book","339"],["booking","339"],["boost","232"],
+["border","134"],["bore","15"],["bored","15"],["boredom","15"],
+["boring","15"],["borrow","74"],["boss","245"],["botanical garden","204"],
+["botanist","306"],["botany","306"],["bother","26"],["bough","50"],
+["bounce","213"],["bound","348"],["boundary","173"],["bow","117"],
+["bowel","203"],["brain","47"],["brainstorm","47"],["branch","50"],
+["brave","194"],["break","345"],["breakdown","222"],["breakthrough","260"],
+["breast","129, 203"],["breath","76"],["breathe","76"],["breed","117"],
+["breeze","294"],["bribe","307"],["bride","262"],["brief","103"],
+["bright","347"],["brilliant","151"],["broadcast","159"],["bronze","280"],
+["brow","203"],["bruise","322"],["brutal","313"],["bud","322"],
+["Buddhist","231"],["budget","175"],["bug","108"],["bulb","322"],
+["bulk","307"],["bull","68"],["bullet","254"],["bully","186"],
+["bullying","186"],["bump","242"],["bunch","303"],["burden","138"],
+["bureau","309"],["bureaucracy","309"],["bureaucrat","309"],["burglar","261, 297"],
+["burial","157"],["burst","117"],["bury","157"],["but","349"],
+["butcher","245"],["butterfly","108"],["by-product","69"],["cabbage","62"],
+["cactus","79"],["calculate","159"],["calculation","159"],["calm","57"],
+["camel","68"],["campaign","175"],["canal","246"],["canary","108"],
+["cancer","177"],["candidate","174"],["canyon","268"],["capability","55"],
+["capable","55"],["capacity","49"],["cape","268"],["capital","348"],
+["capitalism","348"],["capitalist","348"],["captive","123"],["captivity","123"],
+["capture","123"],["carbohydrate","187, 280"],["carbon","82"],["care","335"],
+["career","87"],["carefree","335"],["careless","335"],["cargo","306"],
+["carpenter","245"],["carriage","292"],["cartoon","87"],["carve","236"],
+["carved","236"],["case","325"],["cashier","245"],["cast","120"],
+["castle","180"],["casual","147"],["catastrophe","296"],["catastrophic","296"],
+["category","167"],["caterpillar","108"],["cattle","189"],["Caucasian","244"],
+["cause","333"],["caution","220"],["cautious","220"],["cave","268"],
+["cease","110"],["ceaseless","110"],["cedar","79"],["ceiling","204"],
+["celebrate","34"],["celebrated","34"],["celebration","34"],["celebrity","34"],
+["cell","96"],["census","300"],["certain","325"],["certainly","325"],
+["certainty","325"],["certificate","258"],["certify","258"],["chairman","166, 245"],
+["challenge","327"],["challenging","327"],["chamber","204"],["chance","336"],
+["change","334"],["channel","268"],["chaos","251"],["chaotic","251"],
+["chapter","264"],["character","329"],["characteristic","44"],["characterize","329"],
+["charge","344"],["charitable","86"],["charity","86"],["charm","139"],
+["charming","139"],["chase","126"],["chat","161"],["chatter","161"],
+["cheat","125"],["check","347"],["cheek","203"],["cheer","8"],
+["cheerful","8"],["chemical","56"],["chemist","56"],["chemistry","56"],
+["cherish","214"],["cherished","214"],["chest","129, 203"],["chestnut","79"],
+["chew","41, 237"],["chill","295"],["chilly","295"],["chlorine","280"],
+["choke","287"],["cholera","322"],["chopsticks","200"],["chore","252"],
+["chronic","229, 278"],["church","204"],["cicada","108"],["circle","189"],
+["circuit","141"],["circular","141"],["circulate","141"],["circulation","141"],
+["circumstance","172"],["cite","209"],["citizen","87"],["citizenship","87"],
+["civil","61"],["civilian","61"],["civilization","168"],["civilized","168"],
+["claim","13"],["clap","117"],["clarify","282"],["clash","310"],
+["class","335"],["classic","231"],["classical","231"],["classification","164"],
+["classify","164"],["client","142"],["cliff","268"],["climate","46"],
+["cling","234"],["clinic","278"],["clinical","278"],["close","336"],
+["closet","46, 204"],["clue","172"],["clumsy","314"],["cluster","295"],
+["coal","280"],["coast","268"],["cockroach","108"],["cod","202"],
+["code","185"],["coexist","69"],["cognition","200"],["cognitive","200"],
+["coherence","316"],["coherent","316"],["coin","355"],["coincide","211"],
+["coincidence","211"],["collapse","118"],["collar","203"],["colleague","94"],
+["collective","274"],["college","204"],["collide","259"],["collision","259"],
+["colony","170"],["column","263"],["comb","259"],["combat","243"],
+["combination","27"],["combine","27"],["comedy","179"],["comet","291"],
+["comfort","99"],["comfortable","99"],["command","343"],["commerce","257"],
+["commercial","257"],["commission","111"],["commit","111"],["commitment","111"],
+["committee","174"],["commodity","260"],["common","51"],["commonplace","51"],
+["communism","298"],["communist","298"],["commute","214"],["commuter","214"],
+["companion","172"],["company","325"],["comparable","11"],["comparatively","11, 106"],
+["compare","11"],["comparison","11"],["compassion","168"],["compatible","318"],
+["compel","216"],["compelling","216"],["compensate","217"],["compensation","217"],
+["compete","78, 270"],["competence","270"],["competent","270"],["competition","78"],
+["competitive","78"],["competitor","78"],["compile","286"],["complain","72"],
+["complaint","72"],["complement","294"],["complementary","294"],["complete","97"],
+["completely","97"],["complex","54"],["complexity","54"],["compliance","285"],
+["complicated","191"],["complication","191"],["compliment","249"],["complimentary","249"],
+["comply","285"],["component","179"],["compose","113"],["composer","113"],
+["composition","113"],["compound","225"],["comprehend","216"],["comprehensible","216"],
+["comprehension","216"],["comprehensive","272"],["comprise","212"],["compromise","221"],
+["compulsory","317"],["conceal","233"],["conceive","189, 217"],["concentrate","26"],
+["concentration","26"],["concept","189, 217"],["conception","189, 217"],["concern","330"],
+["concerning","330"],["conclude","158"],["conclusion","158"],["concrete","147, 192"],
+["condemn","291"],["condition","356"],["conduct","344"],["conductor","344"],
+["cone","189"],["conference","166"],["confess","241"],["confession","241"],
+["confidence","91"],["confident","91"],["confidential","91"],["confine","206"],
+["confirm","158"],["conflict","171"],["conform","206"],["conformity","206"],
+["confront","114"],["confrontation","114"],["confuse","18"],["confused","18"],
+["confusing","18"],["confusion","18"],["congestion","45"],["congratulate","210"],
+["congratulations","210"],["congress","181"],["connect","20"],["connection","20"],
+["conquer","162"],["conquest","162"],["conscience","249"],["conscientious","249"],
+["conscious","57"],["consensus","248"],["consent","262"],["consequence","95"],
+["consequently","95"],["conservation","185"],["conservationist","185"],["conservative","194"],
+["conserve","185"],["consider","2"],["considerable","101"],["considerably","101"],
+["considerate","2"],["consideration","2"],["considering","2"],["consist","23"],
+["consistency","152"],["consistent","152"],["conspicuous","315"],["constitute","121"],
+["constitution","139"],["constrain","296"],["constraint","296"],["construct","91"],
+["construction","91"],["constructive","91"],["consult","115"],["consultant","115"],
+["consume","78"],["consumer","78"],["consumption","78"],["contain","71"],
+["container","71"],["contaminate","273"],["contaminated","273"],["contamination","273"],
+["contemplate","238"],["contemporary","145"],["contempt","306"],["contend","283"],
+["content","332"],["context","135"],["continent","166"],["continental","166"],
+["continual","3"],["continue","3"],["continuity","3"],["continuous","3"],
+["contract","129"],["contraction","129"],["contradict","213"],["contradiction","213"],
+["contradictory","213"],["contrary","64"],["contrast","85"],["contribute","20"],
+["contribution","20"],["control","354"],["controversial","197"],["controversy","197"],
+["convenience","101"],["convenient","101"],["convention","142"],["conventional","142"],
+["conversely","321"],["convert","121"],["convey","160"],["conviction","21"],
+["convince","21"],["convincing","21"],["cooperate","161"],["cooperation","161"],
+["cooperative","161"],["coordinate","243"],["coordination","243"],["cope","157"],
+["copper","280"],["copyright","264"],["coral reef","268"],["core","143"],
+["corporate","170"],["corporation","170"],["correct","52"],["correlation","11"],
+["correspond","119"],["correspondence","119"],["corresponding","119"],["corridor","204"],
+["corrupt","265"],["corruption","265"],["cortex","203"],["cosmetics","203"],
+["cosmic","297"],["cosmos","297"],["cost","6"],["costly","6"],
+["costume","257"],["cotton","203"],["cough","176"],["council","187"],
+["counselor","174"],["count","342"],["counterpart","227"],["countless","278"],
+["countryside","268"],["courage","168"],["courageous","168"],["court","348"],
+["courteous","252"],["courtesy","252"],["cousin","257"],["cover","339"],
+["coverage","301"],["cow","68"],["coworker","245"],["craft","142"],
+["craftsman","142"],["cram","302"],["crash","115"],["crawl","236"],
+["create","86"],["creature","86"],["credit","349, 357"],["crew","166"],
+["crime","93"],["criminal","93"],["crisis","92"],["criteria","255"],
+["critic","76"],["critical","92"],["criticism","76"],["criticize","76"],
+["crop","92"],["cross-border","134"],["crow","108"],["crowd","83"],
+["crowded","83"],["crucial","195"],["crude","229"],["cruel","195"],
+["cruelty","195"],["crush","216"],["crystal","280"],["cube","189"],
+["cuckoo","108"],["cucumber","62"],["cue","260"],["cuisine","301"],
+["cultivate","116"],["cultivation","116"],["cupboard","46"],["curb","290"],
+["cure","31"],["curiosity","61"],["curious","61"],["currency","54"],
+["current","54"],["curriculum","179, 357"],["curse","302"],["custom","40"],
+["customary","40"],["customer","40"],["dad","245"],["dairy","298"],
+["damage","49"],["damp","313"],["dandelion","322"],["danger","127"],
+["dangerous","127"],["dare","219"],["daring","219"],["dawn","132"],
+["deadline","254"],["deaf","199"],["deal","335"],["debate","93"],
+["debris","247"],["debt","179"],["decade","84"],["decay","258"],
+["deceit","160"],["deceive","160"],["decent","230"],["deception","160"],
+["decide","3"],["decision","3"],["decisive","3"],["declaration","156"],
+["declare","156"],["decline","18"],["decorate","35"],["decoration","35"],
+["decrease","2"],["dedicate","207"],["dedicated","207"],["deed","248"],
+["deep","271"],["deer","68"],["defeat","156"],["defect","258"],
+["defective","258"],["defend","158"],["defense","158"],["defiance","284"],
+["deficiency","293"],["deficient","293"],["deficit","307"],["define","160"],
+["defining","160"],["definite","107, 160"],["definitely","107"],["definition","160"],
+["deforestation","303"],["defy","284"],["degradation","283"],["degrade","283"],
+["degree","345, 357"],["delay","27"],["delete","287"],["deliberate","155"],
+["deliberately","155"],["delicate","146"],["delight","47"],["delighted","47"],
+["delightful","47"],["deliver","30"],["delivery","30"],["demand","6"],
+["demanding","6"],["dementia","259"],["demerit","171"],["democracy","130"],
+["democrat","130"],["democratic","130"],["demographic","319"],["demonstrate","112"],
+["demonstration","112"],["denial","345"],["dense","189"],["density","189"],
+["dental","245"],["dentist","245"],["deny","345"],["depart","261"],
+["department","44, 357"],["departure","261"],["depend","6"],["dependence","6"],
+["dependent","6"],["depict","239"],["deposit","220"],["depress","115"],
+["depressed","115"],["depressing","115"],["depression","115"],["deprive","119"],
+["depth","86"],["derive","163"],["descend","124"],["descendant","93, 124"],
+["descent","124"],["describe","9"],["description","9"],["desert","48"],
+["deserted","48"],["deserve","165"],["designate","211"],["desirable","83"],
+["desire","83"],["despair","246"],["desperate","151"],["desperately","151"],
+["despise","242"],["despite","107"],["dessert","200"],["destination","169"],
+["destiny","251"],["destroy","12"],["destruction","12"],["destructive","12"],
+["detached","314"],["detail","83"],["detailed","83"],["detect","126"],
+["detective","126"],["deteriorate","287"],["deterioration","287"],["determination","71"],
+["determine","71"],["devastate","213"],["devastating","213"],["develop","3"],
+["development","3"],["device","92"],["devise","92"],["devote","125"],
+["devoted","125"],["devotion","125"],["diabetes","264, 322"],["diagnose","257"],
+["diagnosis","257"],["dialect","183"],["dialogue","263"],["diameter","251"],
+["diarrhea","322"],["dictate","208"],["dictation","208"],["dictator","208"],
+["diet","347"],["the Diet","181"],["dietary","347"],["differ","73"],
+["difference","73"],["different","73"],["differentiate","73"],["digest","209"],
+["digestion","209"],["digestive","209"],["digit","310"],["digital","310"],
+["dignified","246"],["dignity","246"],["diligence","272"],["diligent","272"],
+["dim","311"],["dimension","137"],["diminish","127"],["dinosaur","186"],
+["dip","290"],["diploma","357"],["diplomacy","274"],["diplomat","274"],
+["diplomatic","274"],["direct","341"],["direction","341"],["director","245"],
+["dirt","263"],["disability","143"],["disabled","143"],["disadvantage","82"],
+["disappear","42"],["disappoint","24"],["disappointed","24"],["disappointing","24"],
+["disappointment","24"],["disapprove","33"],["disaster","187"],["disastrous","187"],
+["discard","238"],["discern","283"],["discharge","290"],["discipline","350"],
+["disclose","239"],["discomfort","99"],["discourage","10"],["discourse","298"],
+["discriminate","182"],["discrimination","182"],["discuss","71"],["discussion","71"],
+["disgrace","259"],["disguise","235"],["disgust","221"],["disgusted","221"],
+["disgusting","221"],["dish","200"],["dismiss","117"],["dismissal","117"],
+["disorder","329"],["dispense","269"],["displace","212"],["display","26"],
+["disposable","232"],["disposal","232"],["dispose","232"],["dispute","169"],
+["disregard","243"],["disrupt","238"],["disruption","238"],["dissolve","210"],
+["distance","83"],["distant","83"],["distinct","157"],["distinction","157"],
+["distinctive","157"],["distinguish","157"],["distinguished","157"],["distort","289"],
+["distortion","289"],["distract","239"],["distraction","239"],["distress","141"],
+["distribute","161"],["distribution","161"],["district","172"],["distrust","75"],
+["disturb","25"],["disturbance","25"],["disturbing","25"],["diverse","182"],
+["diversity","182"],["divert","287"],["divide","73"],["divine","317"],
+["division","73"],["divorce","137"],["dizzy","313"],["do","328"],
+["document","89"],["dolphin","202"],["domain","254"],["domestic","59"],
+["domesticated","59"],["dominant","158"],["dominate","158"],["donate","215"],
+["donation","215"],["donkey","68"],["donor","215"],["doomed","314"],
+["dorm","357"],["dormitory","204"],["dose","266"],["dove","108"],
+["downstairs","204"],["dozen","178"],["draft","224"],["drag","232"],
+["drain","234"],["drastic","279"],["drastically","279"],["draw","13"],
+["drawer","13, 204"],["dread","233"],["dreadful","233"],["drift","241"],
+["drive","352"],["drought","246"],["drown","123"],["drug","267"],
+["duck","108"],["due","341"],["dull","146, 229"],["dumb","312"],
+["dump","287"],["durable","158"],["duration","303"],["dusk","132"],
+["dust","263"],["Dutch","244"],["duty","45"],["duty-free","45"],
+["dwell","235"],["dweller","235"],["dwelling","235"],["dye","203"],
+["dynamic","313"],["eager","59"],["eagerly","59"],["eagle","108"],
+["earn","18"],["earnest","312"],["earth","173"],["earthquake","92"],
+["ecological","200"],["ecologist","200"],["ecology","200"],["economic","40"],
+["economical","40"],["economy","40"],["ecosystem","200"],["ecotourism","169"],
+["edge","91"],["edit","178"],["edition","178"],["editor","178"],
+["editorial","178"],["educate","73"],["educated","73"],["education","73"],
+["educational","73"],["effect","37"],["effective","37"],["efficiency","58"],
+["efficient","58"],["effort","80"],["egg plant","62"],["elaborate","199"],
+["elbow","203"],["elderly","103"],["elect","122"],["election","122"],
+["electric","94"],["electrical","94"],["electricity","94"],["electronic","94"],
+["element","46"],["elementary","46"],["elephant","68"],["elevate","204"],
+["elevator","204"],["eliminate","111"],["elimination","111"],["eloquent","316"],
+["embark","288"],["embarrass","33"],["embarrassed","33"],["embarrassing","33"],
+["embarrassment","33"],["embassy","295"],["embody","285"],["embrace","128"],
+["emerge","125"],["emergence","125"],["emergency","125, 130"],["emigrate","131"],
+["eminent","318"],["emission","188"],["emit","188"],["emotion","90"],
+["emotional","90"],["empathy","302"],["emperor","177"],["emphasis","165"],
+["emphasize","165"],["empire","177"],["employ","25"],["employee","25"],
+["employer","25"],["employment","25"],["empty","100"],["enable","72"],
+["enclose","215"],["enclosed","215"],["encounter","26"],["encourage","10, 168"],
+["encouragement","10"],["encyclopedia","250"],["end","333"],["endanger","127"],
+["endeavor","226"],["endow","282"],["endowment","282"],["endurance","158"],
+["endure","158"],["enduring","158"],["enemy","91"],["enforce","211"],
+["engage","25"],["engagement","25"],["enhance","161"],["enlighten","313"],
+["enlightened","313"],["enlightenment","313"],["enormous","101"],["enrich","234"],
+["enroll","239"],["enrollment","239, 357"],["ensure","110"],["enterprise","135"],
+["entertain","158"],["entertainment","158"],["enthusiasm","132"],["enthusiastic","132"],
+["entire","99"],["entirely","99"],["entitled","228"],["entity","296"],
+["entrepreneur","300"],["envelope","85"],["envious","126"],["environment","81"],
+["environmental","81"],["environmentalist","81"],["envy","126"],["epidemic","266"],
+["epilepsy","322"],["equate","265"],["equation","265"],["equator","293, 306"],
+["equip","88, 124"],["equipment","88, 124"],["equivalent","133"],["era","169"],
+["erase","237"],["erect","283"],["erode","258"],["erosion","258"],
+["erupt","307"],["eruption","307"],["escalator","204"],["escape","17"],
+["essence","98"],["essential","98"],["establish","10"],["establishment","10"],
+["estate","260"],["esteem","251"],["estimate","18"],["eternal","275"],
+["eternity","275"],["ethic","144"],["ethical","144"],["ethnic","150"],
+["evacuate","286"],["evacuation","286"],["evaluate","163"],["evaluation","163"],
+["evaporate","293"],["even","330"],["evenly","330"],["eventually","105"],
+["evidence","95"],["evident","95"],["evil","60"],["evoke","291"],
+["evolution","167"],["evolve","167"],["exact","63"],["exactly","63"],
+["exaggerate","162"],["exaggeration","162"],["examination","19"],["examine","19"],
+["exceed","161, 193"],["excel","100, 234"],["excellence","100"],["excellent","100"],
+["except","66"],["exception","167"],["exceptional","167"],["excess","193"],
+["excessive","193, 198"],["exchange","72"],["exclaim","235"],["exclude","3"],
+["excuse","40"],["execute","240"],["executive","172"],["exercise","342"],
+["exert","235"],["exhaust","147"],["exhausted","147"],["exhausting","147"],
+["exhaustion","147"],["exhibit","34"],["exhibition","34"],["exist","69"],
+["existence","69"],["existing","69"],["exotic","276"],["expand","24"],
+["expansion","24"],["expect","2"],["expectation","2"],["expedition","249"],
+["expenditure","98, 265"],["expense","98"],["expensive","98"],["experiment","84"],
+["experimental","84"],["expert","245"],["expertise","293"],["expire","288"],
+["explain","69"],["explanation","69"],["explicit","274"],["explode","180"],
+["exploit","208"],["exploitation","208"],["exploration","77"],["explore","77"],
+["explosion","180"],["explosive","180"],["export","28"],["expose","31"],
+["exposure","31"],["express","70"],["expression","70"],["expressive","70"],
+["extend","23"],["extension","23"],["extensive","23"],["extent","23, 96"],
+["external","146"],["extinct","180"],["extinction","180"],["extinguish","289"],
+["extract","242"],["extraordinary","192"],["extreme","106, 198"],["extremely","106"],
+["eyebrow","203"],["fabric","222"],["face","325"],["facilitate","130"],
+["facility","130"],["factor","182"],["factory","204"],["faculty","137"],
+["fade","160"],["fail","336"],["failure","336"],["faint","228"],
+["faith","132"],["faithful","132"],["fake","271"],["false","153"],
+["fame","246"],["familiar","52"],["familiarity","52"],["famine","180"],
+["famous","246"],["fancy","351"],["fantastic","53"],["fantasy","53"],
+["fare","179"],["fascinate","28"],["fascinated","28"],["fascinating","28"],
+["fascination","28"],["fashion","344"],["fast","355"],["fasten","355"],
+["fat","187"],["fatal","176"],["fate","176, 251"],["fatigue","246"],
+["fault","341"],["favor","42"],["favorable","42"],["favorite","42, 99"],
+["feast","248"],["feat","295"],["feather","203, 223"],["feature","36"],
+["federal","197"],["fee","37"],["feed","17"],["fellow","145"],
+["female","55"],["feminine","276"],["feminist","276"],["fertile","269"],
+["fertility","269"],["fertilizer","269"],["fetch","291"],["fever","84"],
+["fiber","222"],["fiction","89"],["fictional","89"],["fierce","229"],
+["figure","328"],["finance","101"],["financial","101"],["finding","184"],
+["fine","338"],["fire","340"],["firm","342"],["firsthand","318"],
+["fisherman","245"],["fist","182"],["fit","354"],["fitness","354"],
+["fix","344"],["flame","249"],["flat","348"],["flatter","291"],
+["flattery","291"],["flavor","186"],["flaw","257"],["flea","108"],
+["flee","241"],["flesh","259"],["flexibility","196"],["flexible","196"],
+["float","77"],["flock","223"],["flood","86"],["flourish","242"],
+["flu","322"],["fluency","199"],["fluent","199"],["fluently","199"],
+["fluid","261"],["fly","108"],["focus","20"],["fog","67"],
+["fold","164"],["folk","180"],["folklore","180"],["follow","2"],
+["following","2, 57, 218"],["fond","153"],["forbid","4, 159"],["force","4"],
+["forecast","174"],["forefinger","182"],["forehead","203"],["foresee","288"],
+["forgive","35"],["form","333"],["formal","147, 333"],["formation","333"],
+["former","56"],["formerly","56"],["formula","221"],["formulate","221"],
+["fortunate","333"],["fortunately","333"],["fortune","333"],["fossil","176"],
+["foster","127"],["foul","316"],["found","116"],["foundation","116"],
+["fountain","268"],["fox","68"],["fraction","258"],["fracture","322"],
+["fragile","271"],["fragment","254"],["frame","134"],["framework","134"],
+["frank","279"],["frankly","279"],["free","335"],["freedom","335"],
+["freeze","32"],["freight","306"],["frequency","105"],["frequent","105"],
+["frequently","105"],["freshman","357"],["friction","306"],["frighten","29"],
+["frightened","29"],["frightening","29"],["frigid","190"],["frontier","143"],
+["frost","67"],["frown","284"],["frozen","32"],["frustrate","119"],
+["frustrated","119"],["frustrating","119"],["frustration","119"],["fuel","93"],
+["fulfill","116"],["fulfillment","116"],["function","85"],["fund","173"],
+["fundamental","58"],["funeral","307"],["fur","203"],["furious","312"],
+["furnish","46"],["furniture","46"],["furthermore","106"],["fury","312"],
+["fuss","293"],["gain","12"],["galaxy","254"],["gallery","204"],
+["game","356"],["garage","204"],["garbage","96"],["garlic","62"],
+["garment","257"],["gate","204"],["gaze","163"],["gender","187"],
+["gene","95"],["general","57, 97"],["generalization","97"],["generalize","97"],
+["generally","97"],["generate","79"],["generation","79, 83"],["generosity","190"],
+["generous","190"],["genetic","95"],["genetics","95"],["genius","171"],
+["genuine","148"],["geographical","182"],["geography","182"],["geological","278"],
+["geology","278"],["geometry","250"],["germ","265"],["gift","355"],
+["gifted","355"],["gigantic","315"],["ginger","62"],["giraffe","68"],
+["given","349"],["glacier","268"],["glance","159"],["glimpse","250"],
+["gloom","312"],["gloomy","312"],["glorious","255"],["glory","255"],
+["glow","234"],["goat","68"],["good","350"],["goods","86"],
+["goose","108"],["govern","80"],["government","80"],["governor","80"],
+["grab","164"],["grace","259"],["graceful","259"],["gradual","106"],
+["gradually","106"],["graduate","19, 357"],["graduation","19"],["graft","322"],
+["grain","135"],["grandchild","245"],["grandparents","245"],["grant","16"],
+["grasp","118"],["grass","79"],["grateful","196"],["gratitude","196"],
+["grave","269"],["gravitational","144"],["gravity","144"],["greed","277"],
+["greedy","277"],["greenhouse","188"],["greet","158"],["greeting","158"],
+["grief","261"],["grieve","261"],["grocer","245"],["grocery","183"],
+["gross","272"],["ground","340"],["guarantee","158"],["guess","71"],
+["guilt","145"],["guilty","145, 150"],["gulf","268"],["gull","108"],
+["habit","82"],["habitat","186"],["habitual","82"],["hail","67"],
+["hall","204"],["halt","236"],["handle","76"],["handout","357"],
+["harbor","268"],["hardly","105"],["hardship","255"],["hare","68"],
+["harm","49"],["harmful","49"],["harmless","49"],["harsh","198"],
+["harvest","178"],["haste","223"],["hasten","223"],["hasty","223"],
+["hatch","215"],["hate","301"],["hatred","301"],["haunt","286"],
+["haunted","286"],["hawk","108"],["hazard","259"],["hazardous","259"],
+["head","335"],["heading","335"],["headline","249"],["headquarters","253"],
+["heal","125"],["healing","125"],["heaven","173"],["height","137"],
+["heightened","137"],["heir","293"],["hell","173"],["help","331"],
+["helpless","274"],["hemisphere","178"],["hen","108"],["hence","280"],
+["herd","223"],["hereditary","306"],["heredity","306"],["heritage","182"],
+["hesitant","157"],["hesitate","157"],["hesitation","157"],["hierarchy","297"],
+["hinder","285"],["hippopotamus","68"],["hire","7"],["Hispanic","244"],
+["hold","333"],["honor","134"],["honorable","134"],["horizon","138"],
+["horizontal","138, 312"],["horrible","90"],["horrify","90"],["horror","90"],
+["hospitable","296"],["hospital","204"],["hospitality","296"],["hostile","269"],
+["hostility","269"],["household","91"],["housewife","245"],["hug","243"],
+["huge","98"],["humanity","333"],["humble","228"],["humid","276"],
+["humidity","276"],["humiliate","290"],["humiliated","290"],["humiliating","290"],
+["humility","228"],["hurt","23"],["hybrid","266"],["hydrangea","322"],
+["hydrogen","173"],["hygiene","299"],["hypothesis","178"],["iceberg","268"],
+["ideal","100"],["idealism","39"],["identical","30"],["identification","30"],
+["identify","30"],["identity","30"],["ideological","302"],["ideology","302"],
+["idle","229"],["ignorance","200"],["ignorant","200"],["ignore","71"],
+["illegal","61"],["illiterate","201"],["illuminate","214"],["illumination","214"],
+["illusion","247"],["illustrate","114"],["illustration","114"],["imaginable","197"],
+["imaginary","197"],["imaginative","197"],["imitate","165"],["imitation","165"],
+["immature","147"],["immediate","105"],["immediately","105"],["immense","274"],
+["immensely","274"],["immerse","288"],["immersion","288"],["immigrant","131"],
+["immigration","131"],["immortal","266"],["immortality","266"],["immune","195"],
+["impact","48"],["impair","284"],["impartial","328"],["impatient","42"],
+["imperial","177"],["implement","210"],["implication","122"],["implicit","274"],
+["imply","122"],["impolite","102"],["import","28"],["impose","121"],
+["impotent","318"],["impress","87"],["impression","87"],["impressive","87"],
+["imprison","172"],["improper","55"],["improve","7"],["improvement","7"],
+["impulse","247"],["in spite of","67"],["inadequate","192"],["inappropriate","100"],
+["incapable","55"],["incentive","262"],["incidence","211"],["incident","181"],
+["incidental","181"],["inclination","151"],["inclined","151"],["include","3"],
+["including","3"],["income","87"],["incompetent","270"],["incomplete","97"],
+["inconsistent","152"],["incorporate","238"],["incorrect","52"],["increase","2"],
+["increasingly","2"],["incredible","199"],["incredibly","199"],["indefinitely","107"],
+["independence","55"],["independent","55"],["indicate","16"],["indication","16"],
+["indifference","193"],["indifferent","193"],["indigenous","318"],["indispensable","269"],
+["individual","37"],["individualism","37"],["individuality","37"],["induce","214"],
+["indulge","212"],["indulgence","212"],["industrial","39"],["industrialized","39"],
+["industrious","39"],["industry","39"],["inevitable","193"],["inevitably","193"],
+["inexpensive","98"],["infancy","95"],["infant","95"],["infect","128"],
+["infection","128"],["infectious","128"],["infer","237"],["inferior","57"],
+["infinite","272"],["inflame","267"],["inflammation","267"],["inflammatory","267"],
+["inflict","286"],["influence","37"],["influential","37"],["inform","75"],
+["informal","333"],["information","75"],["infrastructure","86"],["ingenious","317"],
+["ingenuity","317"],["ingredient","178"],["inhabit","176"],["inhabitant","176"],
+["inherent","277"],["inherently","277"],["inherit","161, 277"],["inheritance","161"],
+["inhibit","287"],["initial","195, 222"],["initially","195"],["initiate","195, 222"],
+["initiative","222"],["inject","260"],["injection","260"],["injure","35"],
+["injury","35"],["innate","278"],["inner","152"],["innocence","150"],
+["innocent","150"],["innovation","187"],["innovative","187"],["innumerable","314"],
+["input","142"],["inquire","140"],["inquiry","140"],["insane","318"],
+["insect","94"],["insert","233"],["insight","176"],["insist","19"],
+["inspect","236"],["inspection","236"],["inspiration","116"],["inspire","116"],
+["install","242"],["instance","83"],["instant","106"],["instantly","106"],
+["instinct","177"],["instinctive","177"],["institute","48"],["institution","48"],
+["instruct","92"],["instruction","92"],["instructive","92"],["instructor","92"],
+["instrument","92"],["insufficient","103"],["insulin","264"],["insult","176"],
+["insurance","166"],["insure","166"],["intact","319"],["intake","248"],
+["integral","319"],["integrate","235"],["integrity","306"],["intellect","102"],
+["intellectual","102"],["intelligence","102"],["intend","72"],["intense","194"],
+["intensify","194"],["intensity","194"],["intensive","194"],["intent","319"],
+["intention","72"],["intentional","72"],["interact","49"],["interaction","49"],
+["interactive","49"],["interest","336"],["interfere","127"],["interference","127"],
+["internal","146"],["interpret","110"],["interpretation","110"],["interpreter","110"],
+["interrupt","114"],["interruption","114"],["intersection","303"],["interval","246"],
+["intervene","262"],["intervention","262"],["intimacy","148"],["intimate","148"],
+["intricate","319"],["intrigue","319"],["intriguing","319"],["intrinsic","317"],
+["intrude","289"],["intruder","289"],["intrusion","289"],["intuition","298"],
+["intuitive","298"],["invade","162"],["invaluable","37"],["invariably","19"],
+["invasion","162"],["invasive","162"],["invent","74"],["invention","74"],
+["inventive","74"],["inventor","74"],["invest","118"],["investigate","156"],
+["investigation","156"],["investment","118"],["involve","53"],["involved","53"],
+["involvement","53"],["iris","322"],["iron","280"],["ironic","258"],
+["ironically","258"],["irony","258"],["irrational","195"],["irrelevant","151"],
+["irresistible","111"],["irresponsible","84"],["irrigation","301"],["irritate","124"],
+["irritated","124"],["irritating","124"],["Islam","231"],["Islamic","231"],
+["isolate","190"],["isolated","190"],["isolation","190"],["issue","327"],
+["item","346"],["ivory","280"],["ivy","79"],["jail","172"],
+["jam","45"],["jaw","203"],["jealous","230"],["jealousy","230"],
+["jelly fish","202"],["Jew","244"],["jewel","260"],["jewelry","260"],
+["judge","14"],["judgment","14"],["junction","303"],["junior","62"],
+["junk","227"],["Jupiter","89"],["jury","295"],["justice","172"],
+["justification","172"],["justify","172"],["juvenile","316"],["keen","146"],
+["kettle","200"],["kid","127"],["kidney","203"],["kindergarten","264"],
+["kingdom","133"],["kinship","245"],["kitten","68"],["knee","203, 254"],
+["kneel","254"],["knit","244"],["knitting","244"],["knot","244"],
+["knowledge","80"],["labor","174"],["laboratory","166"],["laborious","174"],
+["lack","81"],["ladder","90"],["lag","224"],["lament","282"],
+["landfill","253"],["landlord","142"],["landmark","259"],["landmine","142"],
+["landscape","169"],["lane","261"],["lap","254"],["largely","107"],
+["last","324"],["lasting","324"],["late","352"],["lately","154"],
+["later","149"],["latest","104"],["Latino","244"],["latitude","306"],
+["latter","149"],["laughter","38"],["launch","127"],["laundry","264"],
+["lava","268"],["layer","171"],["lazy","153"],["lead","280, 334"],
+["leaf","79"],["leak","216"],["lean","113"],["leap","162"],
+["lease","29"],["leather","203, 260"],["leave","330"],["lecture","91, 357"],
+["legacy","298"],["legal","61"],["legend","177"],["legendary","177"],
+["legislation","263, 311"],["legitimate","311"],["leisure","96"],["lend","74"],
+["length","86"],["leopard","68"],["lesson","345"],["lest","321"],
+["letter","338"],["lettuce","62"],["leukemia","322"],["liability","230"],
+["liable","230"],["liberal","198"],["liberate","198"],["liberation","198"],
+["liberty","198"],["lid","200"],["life","334"],["lightning","263"],
+["like","355"],["likelihood","51"],["likely","51"],["likewise","59, 97"],
+["lily","79"],["limb","301"],["line","338"],["linger","282"],
+["linguist","195"],["linguistic","195"],["linguistics","195"],["lipstick","203"],
+["liquid","104"],["literacy","201"],["literal","201"],["literally","201"],
+["literary","201"],["literate","201"],["literature","88"],["litter","253"],
+["lively","196"],["liver","184, 203"],["lizard","68"],["load","135"],
+["locate","30"],["location","30"],["log","248"],["logic","177"],
+["logical","177"],["long","337"],["longitude","306"],["loose","146"],
+["lord","142"],["lose","84"],["loss","84"],["lost","84"],
+["lot","251, 353"],["lottery","251"],["low-fat","264"],["loyal","190"],
+["loyalty","190"],["luggage","247"],["lumber","292"],["lump","295"],
+["lunar","194"],["lung","184"],["lure","284"],["luxurious","173"],
+["luxury","173"],["mad","351"],["magnificent","271"],["maintain","342"],
+["maintenance","342"],["Majesty","245"],["major","88, 99, 337, 357"],["majority","88, 337"],
+["make","352"],["malaria","322"],["male","55"],["mammal","185"],
+["manage","340"],["mandate","320"],["mandatory","320"],["manifest","315"],
+["manifestation","315"],["manipulate","239"],["mankind","169"],["manner","341"],
+["mansion","264"],["manual","195"],["manufacture","31"],["manufacturer","31"],
+["manuscript","256"],["maple","79"],["marble","280"],["margin","262"],
+["marginal","262"],["marital","245"],["marriage","70"],["married","70"],
+["marry","70"],["Mars","89"],["marvel","231"],["marvelous","231"],
+["masculine","276"],["mass","45"],["massive","45"],["masterpiece","292"],
+["match","20"],["mate","86"],["material","39, 357"],["materialism","39"],
+["matter","332"],["mature","147"],["maturity","147"],["maximum","149"],
+["mayor","253"],["meadow","295"],["mean","330"],["meaning","330"],
+["means","332"],["meanwhile","154"],["measure","343"],["mechanic","179"],
+["mechanical","179"],["mechanics","179"],["mechanism","179"],["medical","98"],
+["medication","98"],["medicine","98"],["medieval","199"],["meditation","304"],
+["the Mediterranean Sea","268"],["medium","45"],["meet","324"],["melancholy","299"],
+["melt","162"],["menace","301"],["mend","27"],["mental","100"],
+["mentality","100"],["mention","14"],["merchandise","181"],["merchant","181"],
+["merciful","226"],["Mercury","89"],["mercy","226"],["mere","201"],
+["merely","201"],["merge","286"],["merger","286"],["merit","171"],
+["merry","319"],["mess","246"],["messy","246"],["metabolic","266"],
+["metabolism","266"],["metaphor","263"],["meteor","291"],["methane","280"],
+["method","82"],["metropolis","274"],["metropolitan","274"],["microbe","251"],
+["microbiology","251"],["microscope","185"],["midst","305"],["might","319"],
+["mighty","319"],["migrate","234"],["migration","234"],["military","104"],
+["the Milky Way","291"],["million","90, 307"],["millionaire","307"],["mimic","165"],
+["mind","331"],["mine","142"],["miner","142"],["mineral","142"],
+["minimal","149"],["minimum","149"],["minister","50"],["ministry","50"],
+["minor","99"],["minority","88, 99"],["minute","355"],["mischief","305"],
+["mischievous","305"],["miserable","153, 248"],["misery","153, 248"],["mislead","231"],
+["misleading","231"],["miss","326"],["missing","326"],["mission","140"],
+["missionary","140"],["mist","67"],["mistake","9"],["mistaken","9"],
+["mobile","104"],["mobility","104"],["mock","285"],["moderate","198"],
+["modest","148"],["modification","162"],["modify","162"],["moist","256"],
+["moisture","256"],["mold","237"],["mole","68"],["molecular","188"],
+["molecule","188"],["mom","245"],["monarch","296"],["monarchy","296"],
+["monk","183"],["monolingual","52"],["monopolize","299"],["monopoly","299"],
+["monotonous","316"],["monument","250"],["moral","59"],["morality","59"],
+["moreover","106"],["mortal","266"],["mortality","266"],["mosquito","108"],
+["moss","79"],["most","331"],["mostly","107"],["moth","108"],
+["motivate","176"],["motivation","153, 176"],["motive","176"],["mount","219"],
+["mourn","282"],["mouse","68"],["move","353"],["mug","200"],
+["multilingual","52"],["multiple","217"],["multiplication","217"],["multiply","217"],
+["multitude","217"],["murder","169"],["murmur","287"],["muscle","170"],
+["muscular","170"],["museum","204"],["Muslim","231"],["mutate","309"],
+["mutation","309"],["mutual","192"],["myth","181"],["mythology","181"],
+["naive","311"],["naked","275"],["namely","279"],["nap","223"],
+["narration","296"],["narrative","296"],["narrow","58"],["narrowly","58"],
+["nasty","274"],["nation","80"],["national","80"],["nationalism","80"],
+["nationality","80"],["nationwide","80"],["native","54"],["Native American","244"],
+["natural","101, 335"],["nature","345"],["naughty","313"],["naval","255"],
+["navigate","238"],["navigation","238"],["navy","255"],["nearby","63"],
+["nearly","63"],["neat","270"],["necessarily","279"],["necessary","279"],
+["necessity","279"],["needle","247"],["negative","55, 59"],["neglect","120"],
+["negligent","120"],["negotiate","216"],["negotiation","216"],["nephew","257"],
+["nerve","58"],["nervous","58"],["nest","94"],["neurology","308"],
+["neuron","308"],["neuroscience","308"],["neurosis","322"],["neutral","272"],
+["nevertheless","106"],["niece","257"],["nightmare","258"],["nitrogen","173"],
+["noble","150"],["nod","122"],["nonetheless","106"],["nonverbal","196"],
+["nor","66"],["norm","221"],["normal","221"],["the North Pole","268"],
+["notable","275"],["note","354"],["notice","8"],["noticeable","8"],
+["notion","93"],["notorious","316"],["nourish","239"],["nourishment","239"],
+["novel","299"],["novelty","299"],["nowadays","62"],["nuclear","61"],
+["nuisance","255"],["numerous","191"],["nurse","186"],["nursery","186"],
+["nursing","186"],["nurture","239"],["nutrient","187"],["nutrition","187"],
+["oak","79"],["oasis","268"],["obedience","111"],["obedient","111"],
+["obese","264"],["obesity","264"],["obey","111"],["object","340"],
+["objection","340"],["objective","133, 312"],["obligation","118"],["oblige","118"],
+["obscure","229"],["observation","344"],["observe","344"],["obsessed","314"],
+["obsession","314"],["obstacle","175"],["obtain","73"],["obvious","54"],
+["obviously","54"],["occasion","44"],["occasional","64"],["occasionally","64"],
+["occupation","133"],["occupy","31"],["occur","157"],["occurrence","157"],
+["octopus","202"],["odd","192"],["odds","251"],["odor","267"],
+["offend","241"],["offense","241"],["offensive","241"],["offer","4"],
+["offering","4"],["office hours","357"],["official","41"],["offspring","249"],
+["old-fashioned","344"],["omit","237"],["once","347"],["onset","310"],
+["operate","23"],["operation","23"],["opponent","184"],["opportunity","82"],
+["oppose","75"],["opposite","75"],["opposition","75"],["oppress","213"],
+["oppression","213"],["opt","178"],["optimism","196"],["optimist","196"],
+["optimistic","196"],["option","178"],["optional","178"],["oral","273"],
+["orbit","253"],["orchard","308"],["orchid","322"],["order","329"],
+["orderly","329"],["ordinary","192"],["ore","280"],["organ","140"],
+["organic","140"],["organism","140, 181"],["organization","85"],["organize","85"],
+["Oriental","269"],["orientation","269"],["oriented","269"],["origin","88"],
+["original","88"],["originality","88"],["originate","88"],["ornament","35"],
+["orphan","308"],["orphanage","308"],["otherwise","326"],["ought","67"],
+["outbreak","265"],["outcome","185"],["outer","152"],["outlet","298"],
+["outlook","226"],["out-of-date","198"],["output","142"],["outrage","317"],
+["outraged","317"],["outrageous","317"],["outset","310"],["outstanding","276"],
+["oval","189"],["overall","148"],["overcome","76"],["overlook","118"],
+["overnight","107"],["overtake","238"],["overweight","33"],["overwhelm","196"],
+["overwhelming","196"],["owe","34"],["owing","280"],["owl","108"],
+["own","31"],["ox","68"],["oxygen","173"],["oyster","202"],
+["the Pacific Ocean","268"],["pain","44"],["painful","44"],["palace","204, 264"],
+["pale","190"],["palm","79, 182"],["pants","203"],["paper","347"],
+["paradigm","309"],["paradox","222"],["parallel","138"],["paralysis","317"],
+["paralyze","317"],["paralyzed","317"],["parasite","297"],["pardon","28"],
+["park","204"],["(the) Parliament","181"],["parrot","108"],["part","328"],
+["partial","328"],["participant","34"],["participate","34"],["participation","34"],
+["particle","186"],["particular","51"],["party","327"],["passage","40"],
+["passenger","87"],["passion","177"],["passionate","177"],["passive","149"],
+["pastime","96, 158"],["pasture","295"],["patch","256"],["patent","264"],
+["path","92"],["patience","42"],["patient","42"],["patriotic","318"],
+["patriotism","318"],["pause","171"],["pave","255"],["pavement","255"],
+["pay","350"],["pea","62"],["peacock","108"],["pear","62"],
+["pearl","280"],["peasant","310"],["peculiar","149"],["peculiarity","149"],
+["pedestrian","255"],["peer","143"],["penalty","182"],["penetrate","212"],
+["peninsula","268"],["pension","256"],["pentagon","189"],["per","277"],
+["per capita","277"],["perceive","32"],["perception","32"],["perform","15"],
+["performance","15"],["perfume","267"],["peril","301"],["period","80"],
+["permanent","103"],["permission","74"],["permit","74"],["perpetual","320"],
+["perpetuate","320"],["persist","217"],["persistence","217"],["persistent","217"],
+["personnel","250"],["perspective","132"],["persuade","24"],["persuasion","24"],
+["persuasive","24"],["pessimistic","196"],["pest","263"],["pesticide","263"],
+["petal","322"],["petrol","293"],["petroleum","293"],["pharmacist","267"],
+["pharmacy","267"],["phase","261"],["phenomenon","90"],["philosopher","174"],
+["philosophy","174"],["photocopy","357"],["physical","53, 100"],["physician","174"],
+["physicist","53"],["physics","53"],["physiological","277"],["physiology","277"],
+["pierce","285"],["pigeon","108"],["pile","133"],["pill","267"],
+["pine","79"],["pioneer","183"],["pity","346"],["plague","223"],
+["plain","152, 268"],["plane","189"],["planet","89, 291"],["plantation","308"],
+["plate","200"],["plea","290"],["plead","290"],["pleasant","56"],
+["please","56"],["pleased","56"],["pleasure","56"],["pledge","289"],
+["plenty","95"],["plot","221"],["plow","308"],["plunge","213"],
+["pneumonia","322"],["point","346"],["poison","139"],["poisonous","139"],
+["poke","286"],["polar","226"],["pole","226"],["policy","85"],
+["polish","164"],["polite","102"],["political","98"],["politician","98, 304"],
+["politics","98"],["poll","220"],["pollen","322"],["pollutant","89"],
+["pollute","89"],["pollution","89"],["pond","268"],["populate","80"],
+["population","80"],["port","268"],["portion","181"],["portrait","234"],
+["portray","234"],["pose","353"],["positive","55, 59"],["positively","55"],
+["possess","76"],["possession","76"],["possibility","64"],["possible","64"],
+["possibly","64"],["postpone","241"],["posture","302"],["potent","101, 318"],
+["potential","101"],["pour","165"],["poverty","166"],["practical","99"],
+["practically","99"],["practice","327"],["praise","76"],["pray","163"],
+["prayer","163"],["preach","290"],["precaution","303"],["precede","218"],
+["precedent","218"],["preceding","218"],["precious","190"],["precise","154"],
+["precisely","154"],["precision","154"],["predator","261"],["predecessor","296"],
+["predict","77"],["prediction","77"],["predominantly","321"],["prefecture","256"],
+["prefer","8"],["preferable","8"],["preference","8"],["pregnancy","230"],
+["pregnant","230"],["prejudice","136"],["premature","147"],["premise","224"],
+["preoccupation","315"],["preoccupied","315"],["preparation","10"],["prepare","10"],
+["prescribe","213"],["prescription","213"],["presence","334"],["present","334"],
+["presentation","334"],["preservation","24"],["preserve","24"],["president","245"],
+["press","346"],["pressing","346"],["prestige","253"],["prestigious","253"],
+["presumably","211"],["presume","211"],["pretend","77"],["pretty","342"],
+["prevail","215"],["prevalent","215"],["prevent","9"],["prevention","9"],
+["previous","57"],["previously","57"],["prey","140"],["priest","183, 290"],
+["primary","148"],["primate","257"],["prime","148"],["primitive","103"],
+["principal","100"],["principle","44"],["prior","198"],["priority","175, 198"],
+["prison","172"],["prisoner","172"],["privacy","53"],["private","53"],
+["privilege","171"],["privileged","171"],["probability","105"],["probable","105"],
+["probably","105"],["probe","293"],["procedure","172"],["proceed","110"],
+["process","110, 337"],["proclaim","285"],["produce","69"],["product","69"],
+["production","69"],["productive","69"],["productivity","69"],["profession","170"],
+["professional","170"],["professor","85, 245"],["proficiency","305"],["proficient","305"],
+["profile","131"],["profiling","131"],["profit","89"],["profitable","89"],
+["profound","194"],["progress","39"],["progressive","39, 194"],["prohibit","117"],
+["project","42"],["prolong","240"],["prolonged","240"],["prominence","197"],
+["prominent","197"],["promising","277"],["promote","74"],["promotion","74"],
+["prompt","126"],["promptly","126"],["prone","317"],["pronounce","124"],
+["pronunciation","124"],["proof","10"],["propaganda","96"],["proper","55"],
+["property","47"],["prophecy","294"],["prophet","294"],["proportion","129"],
+["proposal","76"],["propose","76"],["proposition","76"],["prose","292"],
+["prospect","170"],["prosper","171"],["prosperity","171"],["prosperous","171"],
+["protect","70"],["protection","70"],["protective","70"],["protein","187"],
+["protest","130"],["protocol","309"],["prove","10"],["proverb","248"],
+["provide","3"],["provided","3"],["province","256"],["provincial","256"],
+["provision","3"],["provoke","207"],["psychiatric","303"],["psychiatrist","303"],
+["psychological","174"],["psychologist","174"],["psychology","174"],["public","53"],
+["publication","77"],["publicity","223"],["publish","77"],["pulse","298"],
+["punctual","274"],["punish","159"],["punishment","159"],["puppy","68"],
+["purchase","160"],["pure","193"],["purity","193"],["purpose","81"],
+["purse","180"],["pursue","112"],["pursuit","112"],["puzzle","27"],
+["puzzled","27"],["quake","92"],["qualification","118"],["qualified","118, 357"],
+["qualify","118"],["quality","50, 81"],["quantity","50"],["quarrel","170"],
+["quarter","46"],["quarterly","46"],["quest","304"],["queue","294"],
+["quit","78"],["quiz","357"],["quote","233"],["rabbit","68"],
+["race","197, 327"],["racial","197, 327"],
+["racism","197"],["radiation","248"],["radical","199"],["radioactive","248"],
+["rag","305"],["rage","220"],["raging","220"],["rail","204"],
+["raise","8"],["random","198"],["range","41"],["rank","130"],
+["rapid","100"],["rapidly","100"],["rare","101"],["rarely","101"],
+["rat","68"],["rate","38"],["rating","38"],["ratio","252"],
+["ration","195"],["rational","195"],["rattle","284"],["raw","191"],
+["ray","173"],["razor","203"],["reach","4"],["react","78"],
+["reaction","78"],["readily","52"],["ready","52"],["ready-made","52"],
+["realization","5"],["realize","5"],["realm","307"],["reap","288"],
+["rear","351"],["reason","332"],["reasonable","58, 332"],["reasoning","332"],
+["reassure","235"],["reassuring","235"],["rebel","263"],["rebellion","263"],
+["recall","77"],["receipt","225"],["receive","225"],["recent","62"],
+["recently","62"],["reception","225"],["receptionist","225"],["recession","226"],
+["recipe","258"],["recipient","215, 225"],["recite","290"],["reckless","315"],
+["recognition","7"],["recognize","7"],["recollect","305"],["recollection","305"],
+["recommend","75"],["recommendation","75, 357"],["reconcile","284"],["recover","29"],
+["recovery","29"],["recruit","211"],["rectangle","189"],["reduce","9"],
+["reduction","9"],["redwood","79"],["refer","11"],["reference","11"],
+["refine","218"],["refined","218"],["reflect","14"],["reflection","14"],
+["reform","170"],["refrain","232"],["refresh","152"],["refreshing","152"],
+["refreshment","152"],["refuge","185"],["refugee","185"],["refusal","13"],
+["refuse","13, 69"],["regard","7"],["regardless","202"],["region","43"],
+["regional","43"],["register","119"],["registration","119"],["regret","22"],
+["regretful","22"],["regrettable","22"],["regulate","160"],["regulation","160"],
+["reign","310"],["reindeer","68"],["reinforce","243"],["reject","21, 69"],
+["rejection","21"],["rejoice","282"],["relate","11"],["relation","11"],
+["relationship","11"],["relative","43, 106, 201"],["relatively","106"],["relativity","43"],
+["release","29"],["relevance","151"],["relevant","151"],["reliable","22"],
+["reliance","22"],["relief","350"],["relieve","350"],["religion","89"],
+["religious","89"],["relocate","30"],["reluctance","191"],["reluctant","191"],
+["rely","22"],["remain","4"],["remark","28, 59"],["remarkable","28, 59"],
+["remarkably","59"],["remedy","250"],["remember","339"],["remind","20"],
+["remote","192"],["removal","19"],["remove","19"],["render","219"],
+["renowned","311"],["rent","29"],["rental","29"],["repair","27"],
+["replace","17"],["replacement","17"],["reply","16"],["represent","15"],
+["representation","15"],["representative","15"],["reproduce","208"],["reproduction","208"],
+["reptile","185"],["republic","254"],["reputation","168"],["require","5"],
+["requirement","5, 357"],["rescue","159"],["research","82"],["resemblance","77"],
+["resemble","77"],["resent","236"],["resentful","236"],["resentment","236"],
+["reservation","28"],["reserve","28"],["reserved","28"],["reservoir","268"],
+["reside","43"],["residence","43"],["resident","43"],["residential","43"],
+["resign","206"],["resignation","206"],["resist","111"],["resistance","111"],
+["resistant","111"],["resolution","120"],["resolve","120"],["resort","124"],
+["resource","85"],["respect","306, 332"],["respectable","271, 332"],["respectful","271, 332"],
+["respective","271, 332"],["respiration","314"],["respiratory","314"],["respond","13"],
+["response","13"],["responsibility","84"],["responsible","84"],["rest","273, 338"],
+["restaurant","204"],["restless","273"],["restore","165"],["restrain","236"],
+["restraint","236"],["restrict","113"],["restriction","113"],["restructure","86"],
+["restructuring","86"],["result","36"],["resume","237"],["retail","266"],
+["retailer","266"],["retain","159"],["retire","74"],["retirement","74"],
+["retreat","219"],["retrieval","291"],["retrieve","291"],["reveal","17"],
+["revelation","17"],["revenge","300"],["revenue","265"],["reversal","113"],
+["reverse","113"],["review","135"],["revise","233"],["revision","233"],
+["revival","237"],["revive","237"],["revolution","46"],["revolutionary","46"],
+["revolve","46"],["reward","47"],["rewarding","47"],["rhetoric","300"],
+["rhinoceros","68"],["rhyme","292"],["rid","165"],["riddle","305"],
+["ridicule","197"],["ridiculous","197"],["right","324"],["rigid","276"],
+["riot","292"],["ripe","147"],["risk","43"],["risky","43"],
+["rite","184"],["ritual","184"],["roam","284"],["roar","233"],
+["rob","123"],["robbery","123"],["robin","108"],["role","81"],
+["roof","204"],["room","327"],["root","128"],["rot","273"],
+["rotate","238"],["rotation","238"],["rotten","273"],["rough","51"],
+["routine","131"],["row","131"],["rub","232"],["rubber","232"],
+["rubbish","253"],["rude","102"],["rug","305"],["ruin","112"],
+["rule","337"],["rumor","263"],["run","324"],["rural","191"],
+["rush","21"],["rust","305"],["sacred","270"],["sacrifice","159"],
+["saint","261"],["salmon","202"],["sanctuary","268"],["sane","318"],
+["sanitary","305"],["sanitation","305"],["sanity","318"],["sardine","202"],
+["satellite","176, 291"],["satisfaction","72"],["satisfactory","72"],["satisfy","72"],
+["Saturn","89"],["saucer","200"],["savage","316"],["save","339"],
+["savings","339"],["say","354"],["scar","322"],
+["scarce","155"],["scarcely","155"],["scare","121"],["scared","121"],
+["scary","121"],["scatter","163"],["scattered","163"],["scene","45"],
+["scenery","45"],["scenic","45"],["scent","267"],["scheme","176"],
+["scholar","91"],["scholarship","91, 357"],["school","202"],["scold","240"],
+["scope","221"],["score","79"],["scorn","294"],["scornful","294"],
+["scrap","253"],["scrape","309"],["scratch","233"],["scream","163"],
+["script","256"],["sculpture","261"],["sea lion","68"],["seal","68"],
+["search","13"],["seat","35"],["seaweed","79"],["secondhand","318"],
+["secretary","183"],["secure","47"],["security","47"],["seed","171"],
+["seek","12"],["seemingly","202"],["segment","296"],["seize","240"],
+["seldom","64"],["select","75"],["selection","75"],["selective","75"],
+["self-confidence","91"],["self-conscious","57"],["self-discipline","350"],["self-esteem","251"],
+["selfish","197"],["semester","357"],["senator","304"],["senior","62"],
+["sensation","225"],["sensational","225"],["sense","328"],["sensible","102, 328"],
+["sensitive","102, 328"],["sensitivity","102"],["sensory","328"],["sentence","355"],
+["sentiment","252"],["sentimental","252"],["sequence","220"],["serious","51"],
+["servant","339"],["serve","339"],["service","38"],["session","227"],
+["settle","349"],["settlement","349"],["settler","349"],["severe","103"],
+["sew","35"],["sewage","309"],["shade","141"],["shake","22"],
+["shallow","271"],["shame","193, 351"],["shameful","193"],["shape","82"],
+["share","6"],["shark","202"],["sharp","97"],["shatter","282"],
+["shed","209"],["sheep","68, 189"],["sheer","313"],["shelf","94"],
+["shell","202"],["shelter","134"],["shield","252"],["shift","33"],
+["ship","304"],["shipment","304"],["shipping","304"],["shortage","166"],
+["shortcoming","303"],["shoulder","203"],["shower","67"],["shrink","212"],
+["shrug","291"],["shy","194"],["sibling","257"],["side","189"],
+["sidewalk","255"],["sigh","215"],["sight","41"],["sightseeing","41"],
+["sign","38"],["signal","38"],["signature","38"],["significance","56"],
+["significant","56"],["signify","56"],["silk","203"],["silly","192"],
+["silver","280"],["similar","97"],["similarity","97"],["simultaneously","279"],
+["sin","294"],["sincere","272"],["sincerity","272"],["sink","159"],
+["sir","245"],["site","87"],["skeleton","203, 259"],["skeptical","315"],
+["skepticism","315"],["skill","81"],["skilled","81"],["skillful","81"],
+["skin","203"],["skip","209"],["skull","259"],["skyscraper","309"],
+["slang","302"],["slap","283"],["slave","136"],["slavery","136"],
+["slender","315"],["slight","200"],["smallpox","322"],["smash","282"],
+["smooth","51"],["snail","108"],["snake","68"],["snap","215"],
+["sneeze","176"],["sniff","289"],["snore","223"],["soak","218"],
+["soaked","218"],["soar","234"],["sob","235"],["sociable","36"],
+["social","36"],["society","36"],["sociology","36"],["sodium","280"],
+["soil","93"],["solar","194"],["soldier","245, 308"],["sole","275"],
+["solely","275"],["solid","104"],["solidarity","104"],["solitary","274"],
+["solitude","274"],["solution","71"],["solve","71"],["somehow","64"],
+["somewhat","201"],["soothe","284"],["sophisticated","149"],["sophomore","357"],
+["sore","273"],["sorrow","175"],["sort","347"],["soul","352"],
+["sound","329"],["sour","275"],["source","82"],["the South Pole","268"],
+["souvenir","252"],["sow","171"],["spacecraft","142"],["span","137"],
+["spare","348"],["sparrow","108"],["specialist","116"],["specialize","116"],
+["specialized","116"],["species","188"],["specific","57"],["specifically","57"],
+["specimen","299"],["spectacle","224"],["spectacular","224"],["spectator","224"],
+["spectrum","227"],["speculate","239"],["speculation","239"],["spell","355"],
+["sphere","220"],["spider","108"],["spill","128"],["spinach","62"],
+["spinal","320"],["spine","320"],["spirit","45"],["spiritual","39, 45"],
+["splendid","270"],["split","123"],["spoil","33"],["spontaneous","277"],
+["spouse","245, 262, 265"],["spread","11"],["spring","353"],["sprout","322"],
+["spur","283"],["square","189"],["squash","62"],["squeeze","239"],
+["squid","202"],["squirrel","68"],["stability","193"],["stable","193"],
+["stairs","204"],["stake","294"],["stalk","285"],["stand","324"],
+["standard","83"],["staple","318"],["stapler","318"],["stare","165"],
+["startle","219"],["startled","219"],["startling","219"],["starvation","120"],
+["starve","120"],["state","85, 331"],["statement","85"],["statesman","304"],
+["static","313"],["statistical","135"],["statistics","135"],["statue","183"],
+["status","90"],["steadily","146"],["steady","146"],["steak","200"],
+["steel","280"],["steep","272"],["steer","210"],["stem","128"],
+["stereotype","141"],["stew","200"],["stick","343"],["stiff","229"],
+["still","330"],["stimulate","115"],["stimulus","115"],["stir","218"],
+["stock","129"],["stomach","184, 203"],["storage","339"],["store","339"],
+["storm","95"],["story","353"],["straightforward","270"],["strain","136"],
+["strained","136"],["stranger","88"],["strategy","184"],["stream","93"],
+["strength","88"],["strengthen","88"],["stress","21"],["stressful","21"],
+["stretch","34"],["strict","104"],["strike","342"],["striking","192, 342"],
+["string","247"],["strip","141"],["strive","243"],["stroke","143"],
+["stroll","284"],["structure","86"],["struggle","24"],["stubborn","230"],
+["stubbornly","230"],["study","204"],["stuff","131"],["stumble","285"],
+["stun","287"],["stunned","287"],["stunning","287"],["stupid","104"],
+["subject","338"],["subjective","312"],["submit","206"],["subordinate","304"],
+["subscribe","304"],["subscriber","304"],["subsequent","272"],["subsidiary","302"],
+["subsidize","302"],["subsidy","302"],["substance","153, 184"],["substantial","153"],
+["substitute","114"],["subtle","194"],["suburb","177"],["succeed","349"],
+["successful","349"],["succession","349"],["successive","349"],["successor","296"],
+["suck","289"],["sue","289"],["suffer","9"],["suffering","9"],
+["sufficient","103"],["suggest","5"],["suggestion","5"],["suicide","186"],
+["suit","17"],["suitable","17"],["sulfur","280"],["sum","130"],
+["summarize","130"],["summary","130"],["summit","223"],["summon","282"],
+["superficial","271"],["superior","57"],["superiority","57"],["superstition","247"],
+["superstitious","247"],["supervise","222"],["supervision","222"],["supervisor","222"],
+["supplement","238"],["supply","6, 12"],["support","7"],["suppose","8"],
+["supposedly","8"],["suppress","234"],["suppression","234"],["supreme","270"],
+["surface","85"],["surge","294"],["surgeon","187"],["surgery","187"],
+["surpass","234"],["surplus","256"],["surrender","208"],["surround","17"],
+["surroundings","17"],["surveillance","253"],["survey","91"],["survival","15"],
+["survive","15"],["susceptibility","320"],["susceptible","320"],["suspect","30"],
+["suspend","218"],["suspense","218"],["suspicion","30"],["suspicious","30"],
+["sustain","160"],["sustainable","160"],["swallow","41, 108"],["swamp","268"],
+["swear","283"],["sweat","188"],["sweep","164"],["swell","209"],
+["swift","311"],["sword","252"],["syllabus","357"],["sympathetic","168"],
+["sympathize","168"],["sympathy","168"],["symptom","171"],["syndrome","266"],
+["synthesis","231"],["synthesize","231"],["synthetic","231"],["tackle","237"],
+["tactics","299"],["tale","169"],["talent","96"],["talented","96"],
+["tame","288"],["tap","128"],["task","83"],["taste","41"],
+["tax","167"],["tear","78"],["tease","243"],["technical","90"],
+["technique","90"],["telegram","185"],["telescope","185"],["temper","136"],
+["temperament","295"],["temperate","190"],["temperature","88"],["temporary","103"],
+["tempt","206"],["temptation","206"],["tempting","206"],["tend","6"],
+["tendency","6"],["tender","317"],["tense","175"],["tension","175"],
+["term","326, 357"],["terminal","144"],["terminate","144"],["terrible","99"],
+["terrific","312"],["terrified","99"],["terrify","99"],
+["terrifying","99"],["territory","134"],["terror","99"],["terrorism","99"],
+["testify","283"],["testimony","283"],["text","79"],["textile","292"],
+["theater","204"],["theft","261"],["theme","173"],["theoretical","84"],
+["theory","84"],["therapist","225"],["therapy","225"],["thereby","279"],
+["therefore","63"],["thermometer","256"],["thesis","310"],["thief","261"],
+["things","331"],["thirst","102"],["thirsty","102"],["thorn","322"],
+["thorough","202"],["thoroughly","202"],["thread","247"],["threat","112"],
+["threaten","112"],["threatening","112"],["thrill","152"],["thrilled","152"],
+["thrilling","152"],["thrive","207"],["throat","203"],["throughout","65"],
+["thrust","290"],["thumb","182"],["thunder","67, 263"],["thunderstorm","67"],
+["thus","65"],["tide","144"],["tidy","315"],["tight","148"],
+["tighten","148"],["timber","292"],["time-consuming","78"],["tiny","101"],
+["tip","188"],["tissue","222"],["toe","182, 203"],["token","299"],
+["tolerance","242"],["tolerant","242"],["tolerate","242"],["toll","297"],
+["tomb","259"],["tongue","348"],["tooth","203"],["torment","310"],
+["tornado","67"],["torture","310"],["touch","345"],["tough","61"],
+["tourism","169"],["toxic","272"],["toxin","272"],["trace","114"],
+["track","40"],["trade","39"],["tradition","86"],["traditional","86"],
+["tragedy","179"],["tragic","179"],["trail","252"],["trait","183"],
+["transaction","297"],["transfer","122"],["transform","156"],["transformation","156"],
+["transition","248"],["translate","31"],["translation","31"],["transmission","116"],
+["transmit","116"],["transparent","311"],["transplant","188"],["transport","41"],
+["transportation","41"],["trap","136"],["trash","253"],["treasure","129"],
+["treat","10"],["treatment","10"],["treaty","249"],["tremble","240"],
+["tremendous","193"],["trend","48"],["trendy","48"],["trial","134"],
+["triangle","189"],["tribe","175"],["trick","353"],["trigger","214"],
+["trim","316"],["triumph","250"],["trivial","277"],["troop","257"],
+["tropical","190"],["tropics","190"],["trout","202"],["true","153"],
+["trunk","50, 322"],["trust","75"],["tuberculosis","322"],["tuition","257, 357"],
+["tumor","302"],["tuna","202"],["tune","137"],["turf","322"],
+["turkey","108"],["turn","324"],["turtle","68"],["tutor","85, 357"],
+["twig","322"],["twilight","67"],["twin","44"],["twist","242"],
+["typical","100"],["tyranny","297"],["tyrant","297"],["ugly","197"],
+["ultimate","194"],["ultraviolet","311"],["unavoidable","70"],["uncover","240"],
+["underestimate","18"],["undergo","163"],["undergraduate","19, 357"],
+["underlie","150"],["underlying","150"],["undermine","289"],["undertake","123"],
+["undo","286"],["undone","286"],["uneasy","270"],["unemployment","25"],
+["unfold","164"],["unify","162"],["union","168"],["unit","168"],
+["unite","162"],["unity","162"],["universal","94"],["universe","94"],
+["university","204"],["unless","66"],["unlike","65"],["unprecedented","218"],
+["upright","321"],["upset","56"],["upstairs","204"],["up-to-date","198"],
+["urban","103, 191"],["urge","125"],["urgency","192"],["urgent","192"],
+["usage","180"],["utility","214"],["utilize","214"],["utmost","319"],
+["utter","241, 279"],["utterance","241"],["utterly","279"],["vacancy","276"],
+["vacant","276"],["vaccine","183"],["vacuum","304"],["vague","191"],
+["vain","150"],["valid","228"],["validity","228"],
+["valley","268"],["valuable","37"],["value","37"],["vanish","165"],
+["vanity","150"],["vapor","293"],["variation","19"],["varied","19"],
+["variety","97"],["various","19, 97"],["vary","19, 97"],["vast","191"],
+["vegetation","308"],["vehicle","131"],["vein","298"],["vending","308"],
+["venture","140"],["Venus","89"],["verbal","196"],["verge","300"],
+["verse","292"],["version","138"],["vertebrate","185"],["vertical","312"],
+["very","329"],["vessel","143"],["via","280"],["vice","168, 352"],
+["vicious","352"],["victim","93"],["view","336"],["viewpoint","336"],
+["vigor","273"],["vigorous","273"],["violate","211"],["violation","211"],
+["violence","87"],["violent","87"],["virtual","201"],["virtually","201"],
+["virtue","168"],["virtuous","168"],["virus","183"],["visible","191"],
+["vision","349"],["visual","191"],["vital","145"],["vitality","145"],
+["vivid","153"],["vocabulary","91"],["vocal","275"],["vocation","133"],
+["vocational","133"],["volcanic","262"],["volcano","262"],["volume","168"],
+["voluntary","50"],["volunteer","50"],["vote","48"],["vow","288"],
+["voyage","178"],["vulnerable","277"],["wage","167"],["wall","204"],
+["wallet","180"],["walnut","79"],["wander","78"],["ward","265"],
+["warn","20"],["warning","20"],["warrior","308"],["wasp","108"],
+["waste","351"],["waterfall","268"],["way","329"],["wealth","89"],
+["wealthy","89"],["weapon","92"],["wear","338"],["weave","241"],
+["web","94"],["Website","87"],["weed","79"],["weep","235"],
+["weigh","33"],["weight","33, 86"],["welfare","132"],["well-being","132"],
+["whale","202"],["wheat","180"],["wheel","36"],
+["wheelchair","36"],["whereas","155"],["whether","67"],["whisper","164"],
+["whistle","252"],["wicked","312"],["widespread","191"],["width","86"],
+["wild boar","68"],["wilderness","253"],["wildlife","181"],["will","331"],
+["willing","54"],["willingly","54"],["willingness","54"],["willow","79"],
+["wind","209"],["wipe","161"],["wiper","161"],["wisdom","167"],
+["wise","167"],["wit","255"],["witch","293"],["witchcraft","293"],
+["withdraw","126"],["withdrawal","126"],["wither","287"],["within","66"],
+["withstand","290"],["witness","133"],["witty","255"],["wizard","293"],
+["wolf","68"],["wonder","5"],["wonderful","5"],["wool","203"],
+["word","345"],["work","334"],["workaholic","195"],["worm","108, 250"],
+["worry","5"],["worship","227"],["worth","53"],["wound","136"],
+["wounded","136"],["wreck","314"],["wrecked","314"],["wrinkle","203"],
+["wrist","182"],
+["yard","93, 204"],["yawn","243"],["yearn","289"],["yearning","289"],
+["yell","236"],["yield","351"],["youngster","184"],["youth","90"],
+["youthful","90"],["zebra","68"]
+];
+
+// ---- ユーティリティ ----
+
+// 索引データを検索用に整形:
+//   - 各見出し語(スペース区切りの複合語も含む)を小文字化してSetに登録
+//   - "the Antarctic" のような語は "the antarctic" 全体と、構成語 "antarctic" も別途登録
+const wordSet = new Set();       // 単語帳に載っている語(照合用、小文字)
+const entryList = [];            // [{lower, display, page}] 近い単語探索用(見出し語そのまま)
+
+for (const [headword, page] of data) {
+  const lower = headword.toLowerCase();
+  wordSet.add(lower);
+  entryList.push({ lower, display: headword, page });
+
+  // 複合語やハイフン語の構成要素も、単独語としての一致判定に使えるよう登録
+  const parts = lower.split(/[\s-]+/).filter(p => p.length > 1 && p !== "the");
+  if (parts.length > 1) {
+    for (const p of parts) wordSet.add(p);
+  }
+}
+
+// レーベンシュタイン距離
+function levenshtein(a, b) {
+  const m = a.length, n = b.length;
+  if (m === 0) return n;
+  if (n === 0) return m;
+  let prev = new Array(n + 1);
+  let curr = new Array(n + 1);
+  for (let j = 0; j <= n; j++) prev[j] = j;
+  for (let i = 1; i <= m; i++) {
+    curr[0] = i;
+    for (let j = 1; j <= n; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      curr[j] = Math.min(
+        prev[j] + 1,
+        curr[j - 1] + 1,
+        prev[j - 1] + cost
+      );
+    }
+    [prev, curr] = [curr, prev];
+  }
+  return prev[n];
+}
+
+// 見出し語一覧から、対象語に近い単語を距離が小さい順にN件返す
+function findNeighbors(word, n) {
+  const candidates = [];
+  for (const entry of entryList) {
+    // 明らかに長さが離れすぎているものは早めに除外(高速化)
+    if (Math.abs(entry.lower.length - word.length) > 4) continue;
+    const dist = levenshtein(word, entry.lower);
+    candidates.push({ entry, dist });
+  }
+  candidates.sort((a, b) => a.dist - b.dist || a.entry.lower.localeCompare(b.entry.lower));
+  // 完全一致(距離0)は「未収録」判定の対象にならないはずだが念のため除外はしない
+  return candidates.slice(0, n);
+}
+
+// 英文からアルファベット主体の単語トークンを抽出(所有格の 's やハイフン語も1語として扱う)
+function extractWords(text) {
+  const raw = text.match(/[A-Za-z][A-Za-z'-]*[A-Za-z]|[A-Za-z]/g) || [];
+  const seen = new Set();
+  const ordered = [];
+  for (const w of raw) {
+    const clean = w.replace(/^'+|'+$/g, "");
+    if (clean.length < 2) continue;
+    const lower = clean.toLowerCase();
+    if (!seen.has(lower)) {
+      seen.add(lower);
+      ordered.push(clean);
+    }
+  }
+  return ordered;
+}
+
+const essayEl = document.getElementById("essay");
+const checkBtn = document.getElementById("checkBtn");
+const summaryEl = document.getElementById("summary");
+const resultsEl = document.getElementById("results");
+const neighborCountEl = document.getElementById("neighborCount");
+
+function weblioUrl(word) {
+  return "https://ejje.weblio.jp/content/" + encodeURIComponent(word);
+}
+
+function run() {
+  const text = essayEl.value;
+  const words = extractWords(text);
+  const n = parseInt(neighborCountEl.value, 10);
+
+  if (words.length === 0) {
+    summaryEl.innerHTML = "";
+    resultsEl.innerHTML = '<div class="empty-state"><div class="big">英文が入力されていません</div>チェックしたい英文を上の欄に貼り付けてください。</div>';
+    return;
+  }
+
+  const missing = words.filter(w => !wordSet.has(w.toLowerCase()));
+
+  summaryEl.innerHTML =
+    `抽出した単語 <b>${words.length}</b> 語中、単語帳に <span class="flag">未収録の単語は ${missing.length} 語</span> でした。`;
+
+  if (missing.length === 0) {
+    resultsEl.innerHTML = '<div class="empty-state"><div class="big">未収録の単語はありませんでした</div>この英文の単語はすべて単語帳の索引に含まれています。</div>';
+    return;
+  }
+
+  resultsEl.innerHTML = "";
+  for (const word of missing) {
+    const neighbors = findNeighbors(word.toLowerCase(), n);
+
+    const card = document.createElement("div");
+    card.className = "word-card";
+
+    const neighborsHtml = neighbors.length
+      ? `<div class="neighbors">${neighbors.map(({entry, dist}) =>
+          `<span class="neighbor-chip"><span class="nw">${entry.display}</span><span class="np">p.${entry.page}</span></span>`
+        ).join("")}</div>`
+      : '<div class="no-neighbors">近い綴りの見出し語が見つかりませんでした</div>';
+
+    card.innerHTML = `
+      <div class="headword"><span class="mark">未収録</span>${word}</div>
+      ${neighborsHtml}
+      <a class="weblio-link" href="${weblioUrl(word)}" target="_blank" rel="noopener">Weblioで意味を見る &rarr;</a>
+    `;
+    resultsEl.appendChild(card);
+  }
+}
+
+checkBtn.addEventListener("click", run);
+neighborCountEl.addEventListener("change", () => {
+  if (essayEl.value.trim() !== "") run();
+});
+</script>
+</body>
+</html>
